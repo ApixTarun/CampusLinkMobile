@@ -197,7 +197,6 @@ async function handle(req, res) {
       const registrationNo = normalizeRegistration(data.registrationNo);
       if (college.length < 3 || college.length > 180) return json(res, 400, { error: 'Choose or enter your college.' });
       if (registrationNo.length < 3 || registrationNo.length > 40) return json(res, 400, { error: 'Enter a valid registration number.' });
-      if ([...password].length < 15) return json(res, 400, { error: 'Use a passphrase with 15–128 characters.' });
       regDigest = registrationDigest(registrationNo);
     }
 

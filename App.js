@@ -361,8 +361,8 @@ function AppContent() {
           setAuthError('Enter your student registration number.');
           return;
         }
-        if (password.length < 15) {
-          setAuthError('Choose a passphrase with at least 15 characters.');
+        if (password.length < 8) {
+          setAuthError('Choose a secure password with at least 8 characters.');
           return;
         }
       }
@@ -378,16 +378,20 @@ function AppContent() {
 
     setAuthBusy(true);
     try {
+      const companyVal = (authForm.company || '').trim();
+      const collegeVal = (authForm.college || (role === 'Recruiter' ? (companyVal || 'Company Partner') : '')).trim();
+      const regNoVal = (authForm.registrationNo || (role === 'Recruiter' ? 'REC' + Date.now().toString(36).slice(-6).toUpperCase() : role === 'Placement' ? 'PO' + Date.now().toString(36).slice(-6).toUpperCase() : '')).trim();
+
       const payloadBody = authMode === 'register'
         ? {
             role,
             name: authForm.name.trim(),
             email,
             password,
-            company: (authForm.company || '').trim(),
-            college: (authForm.college || '').trim(),
+            company: companyVal,
+            college: collegeVal,
             designation: (authForm.designation || '').trim(),
-            registrationNo: (authForm.registrationNo || '').trim(),
+            registrationNo: regNoVal,
           }
         : { email, password };
 
@@ -399,10 +403,16 @@ function AppContent() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Could not sign in.');
       const account = payload.user;
+      const enhancedAccount = {
+        ...account,
+        role: account.role || role,
+        company: account.company || (role === 'Recruiter' ? (companyVal || account.college) : ''),
+        designation: account.designation || authForm.designation || '',
+      };
 
       if (autoLogin) {
         await safeStorageSet(AUTH_TOKEN_KEY, payload.token);
-        await safeStorageSet(AUTH_USER_KEY, JSON.stringify(account));
+        await safeStorageSet(AUTH_USER_KEY, JSON.stringify(enhancedAccount));
         await safeStorageSet(AUTO_LOGIN_KEY, 'true');
       } else {
         await safeStorageDelete(AUTH_TOKEN_KEY);
@@ -410,23 +420,23 @@ function AppContent() {
         await safeStorageDelete(AUTH_PROFILE_KEY);
         await safeStorageSet(AUTO_LOGIN_KEY, 'false');
       }
-      if (account.email) {
-        await safeStorageSet(SAVED_EMAIL_KEY, account.email);
+      if (enhancedAccount.email) {
+        await safeStorageSet(SAVED_EMAIL_KEY, enhancedAccount.email);
       }
 
-      setAuthUser(account);
+      setAuthUser(enhancedAccount);
       setAuthToken(payload.token);
-      const userRole = account.role || role;
+      const userRole = enhancedAccount.role || role;
       setRole(userRole);
 
       if (userRole === 'Student') {
-        const accountStudent = studentFromAccount(account);
+        const accountStudent = studentFromAccount(enhancedAccount);
         setStudents((current) => [...current.filter((person) => person.id !== account.id), accountStudent]);
         setStudentId(account.id);
       }
 
       setTab('Home');
-      notify(`Welcome back, ${account.name.split(' ')[0]}!`, account.id, 'Signed in');
+      notify(`Welcome back, ${enhancedAccount.name.split(' ')[0]}!`, enhancedAccount.id, 'Signed in');
       animateEntry('app');
     } catch (error) {
       setAuthError(error.message === 'Network request failed'
@@ -833,8 +843,8 @@ function AppContent() {
           <Text style={s.authLabel}>Student registration number</Text><TextInput style={s.authInput} value={authForm.registrationNo} onChangeText={(value) => setAuthValue('registrationNo', value)} placeholder="College registration number" placeholderTextColor="#AAB6D0" autoCapitalize="characters" />
         </>}
         <Text style={s.authLabel}>{role === 'Recruiter' ? 'Work / corporate email address' : 'Email address'}</Text><TextInput style={s.authInput} value={authForm.email} onChangeText={(value) => setAuthValue('email', value)} placeholder={role === 'Recruiter' ? 'recruiter@company.com' : 'you@example.com'} placeholderTextColor="#AAB6D0" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
-        <Text style={s.authLabel}>Password</Text><View style={s.authPasswordRow}><TextInput style={[s.authInput, s.authPasswordInput]} value={authForm.password} onChangeText={(value) => setAuthValue('password', value)} placeholder={authMode === 'register' ? (role === 'Student' ? 'Create a 15+ character passphrase' : 'Create password (min 8 characters)') : 'Enter your password'} placeholderTextColor="#AAB6D0" secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false} autoComplete={authMode === 'register' ? 'new-password' : 'password'} /><TouchableOpacity style={s.passwordVisibilityButton} onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}><View style={s.eyeIcon}><View style={s.eyePupil} />{!passwordVisible && <View style={s.eyeSlash} />}</View></TouchableOpacity></View>
-        {authMode === 'register' && <Text style={s.authHint}>{role === 'Student' ? 'Choose your own password with at least 15 characters. For example, combine several words with numbers or symbols; don’t reuse someone else’s password.' : 'Choose a secure password with at least 8 characters. Passwords are encrypted on the server.'}</Text>}
+        <Text style={s.authLabel}>Password</Text><View style={s.authPasswordRow}><TextInput style={[s.authInput, s.authPasswordInput]} value={authForm.password} onChangeText={(value) => setAuthValue('password', value)} placeholder={authMode === 'register' ? 'Create password (min 8 characters)' : 'Enter your password'} placeholderTextColor="#AAB6D0" secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false} autoComplete={authMode === 'register' ? 'new-password' : 'password'} /><TouchableOpacity style={s.passwordVisibilityButton} onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}><View style={s.eyeIcon}><View style={s.eyePupil} />{!passwordVisible && <View style={s.eyeSlash} />}</View></TouchableOpacity></View>
+        {authMode === 'register' && <Text style={s.authHint}>Choose a secure password with at least 8 characters. Passwords are encrypted on the server.</Text>}
         <TouchableOpacity style={s.autoLoginRow} onPress={() => setAutoLogin((current) => !current)} activeOpacity={0.8} accessibilityRole="checkbox" accessibilityState={{ checked: autoLogin }} accessibilityLabel="Keep me signed in with auto login">
           <View style={[s.checkbox, autoLogin && s.checkboxChecked]}>{autoLogin && <Text style={s.checkboxCheck}>✓</Text>}</View>
           <View style={s.autoLoginTextWrap}>

@@ -3,6 +3,11 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+if (process.env.RENDER || process.env.NODE_ENV === 'production') {
+  require('./server/server.js');
+  return;
+}
+
 const secretPath = path.join(__dirname, '.campuslink-secret');
 let localSecret = process.env.CAMPUSLINK_AUTH_SECRET;
 if (!localSecret) {
