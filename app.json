@@ -12,13 +12,14 @@
         "monochromeImage": "./assets/monochrome-icon.png"
       }
     },
-    "extra": {
-      "eas": {
-        "projectId": "eb719c4c-c720-4f58-902e-6b1b8cb6dff6"
-      }
-    },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "57da1222-f621-4cfd-8940-67ef08010a97"
+      }
+    },
+    "owner": "tarunnayaknayak"
   }
 }
