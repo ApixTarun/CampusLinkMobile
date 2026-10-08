@@ -4,11 +4,11 @@ React Native + Expo prototype for a campus placement workflow connecting student
 
 The interface respects device safe areas, and its main screens and dialogs scroll on smaller displays.
 
-On every app launch, an animated CampusLink welcome screen leads into role selection. Student selection opens registration/login; Placement and Recruiter open their workspaces. Student accounts can log out from Profile and return to login. The moon/sun button switches themes.
+On first app launch, an animated CampusLink welcome screen leads into role selection. Student selection opens registration/login with an "Auto login" option (enabled by default); Placement and Recruiter open their respective workspaces. When auto login is enabled, reopening the app restores the student's authenticated workspace immediately with offline-first support and validates the session in the background. Student accounts can log out from the Profile screen at any time to clear saved credentials and return to login. The moon/sun button switches themes.
 
 ## Student account demo
 
-The mobile app uses the auth API in `server/server.js`. Passwords are never saved in the app or stored as readable text: the server stores salted scrypt verifiers, enforces a 15-character passphrase minimum, limits repeated login attempts, and issues short-lived bearer tokens. Student registration numbers are stored as keyed digests for duplicate checks.
+The mobile app uses the auth API in `server/server.js`. Passwords are never saved in the app or stored as readable text: the server stores salted scrypt verifiers, enforces a 15-character passphrase minimum, limits repeated login attempts, and issues revocable 30-day bearer tokens. Tokens, cached account profiles, and auto-login preferences are kept in device secure storage (`expo-secure-store`) for instant, offline-first automatic sign-in; the server persists session revocation state alongside account data. Student registration numbers are stored as keyed digests for duplicate checks.
 
 For local development, start this project with `npm start`. This starts the auth API and Expo together, generates a private local auth secret, and detects the Expo/Metro host. Keep the terminal open while using the development app. For a physical phone, use Expo's **LAN** connection, keep the phone and computer on the same Wi-Fi, and allow Node.js through the Windows firewall if prompted.
 

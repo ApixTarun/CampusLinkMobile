@@ -6,12 +6,25 @@ const { promisify } = require('node:util');
 
 const scrypt = promisify(crypto.scrypt);
 const PORT = Number(process.env.PORT || 4000);
-const SECRET = process.env.CAMPUSLINK_AUTH_SECRET || '';
+const secretPath = path.join(__dirname, '..', '.campuslink-secret');
+let SECRET = process.env.CAMPUSLINK_AUTH_SECRET || '';
+if (!SECRET) {
+  try {
+    const fsSync = require('node:fs');
+    SECRET = fsSync.readFileSync(secretPath, 'utf8').trim();
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    SECRET = crypto.randomBytes(32).toString('hex');
+    try { require('node:fs').writeFileSync(secretPath, SECRET, { mode: 0o600 }); } catch {}
+  }
+}
 const STORE_DIR = process.env.CAMPUSLINK_DATA_DIR || path.join(__dirname, 'data');
 const STORE_FILE = path.join(STORE_DIR, 'students.json');
+const SESSION_FILE = path.join(STORE_DIR, 'sessions.json');
 const sessions = new Map();
 const loginAttempts = new Map();
 let transactionQueue = Promise.resolve();
+let sessionWriteQueue = Promise.resolve();
 const PASSWORD_POLICY = { N: 1 << 17, r: 8, p: 1, keylen: 64 };
 
 if (Buffer.byteLength(SECRET) < 32) {
@@ -29,6 +42,31 @@ async function readUsers() {
     if (error.code === 'ENOENT') return [];
     throw error;
   }
+}
+
+async function loadSessions() {
+  await fs.mkdir(STORE_DIR, { recursive: true });
+  try {
+    const content = await fs.readFile(SESSION_FILE, 'utf8');
+    const storedSessions = JSON.parse(content);
+    const now = Math.floor(Date.now() / 1000);
+    for (const [id, session] of storedSessions) {
+      if (session.expiresAt > now) sessions.set(id, session);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
+function persistSessions() {
+  const snapshot = JSON.stringify([...sessions]);
+  const transaction = sessionWriteQueue.then(async () => {
+    const tempFile = `${SESSION_FILE}.${process.pid}.tmp`;
+    await fs.writeFile(tempFile, snapshot, { encoding: 'utf8', mode: 0o600 });
+    await fs.rename(tempFile, SESSION_FILE);
+  });
+  sessionWriteQueue = transaction.then(() => undefined, () => undefined);
+  return transaction;
 }
 
 function transactUsers(action) {
@@ -75,15 +113,16 @@ function registrationDigest(registrationNo) {
   return crypto.createHmac('sha256', SECRET).update(`student-registration:${registrationNo}`).digest('hex');
 }
 
-function issueToken(user) {
+async function issueToken(user) {
   const now = Math.floor(Date.now() / 1000);
   for (const [id, session] of sessions) if (session.expiresAt <= now) sessions.delete(id);
-  const claims = { sub: user.id, jti: crypto.randomUUID(), iat: now, exp: now + 60 * 60 };
+  const claims = { sub: user.id, jti: crypto.randomUUID(), iat: now, exp: now + 30 * 24 * 60 * 60 };
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(JSON.stringify(claims)).toString('base64url');
   const unsigned = `${header}.${payload}`;
   const signature = crypto.createHmac('sha256', SECRET).update(unsigned).digest('base64url');
   sessions.set(claims.jti, { userId: user.id, expiresAt: claims.exp });
+  await persistSessions();
   return `${unsigned}.${signature}`;
 }
 
@@ -153,7 +192,7 @@ async function handle(req, res) {
       return { save: true, status: 201, user };
     });
     if (result.status !== 201) return json(res, result.status, { error: result.error });
-    return json(res, 201, { user: publicUser(result.user), token: issueToken(result.user) });
+    return json(res, 201, { user: publicUser(result.user), token: await issueToken(result.user) });
   }
 
   if (req.method === 'POST' && req.url === '/api/auth/login') {
@@ -178,7 +217,7 @@ async function handle(req, res) {
       return json(res, 401, { error: 'Email or password is incorrect.' });
     }
     clearLoginFailures(key);
-    return json(res, 200, { user: publicUser(user), token: issueToken(user) });
+    return json(res, 200, { user: publicUser(user), token: await issueToken(user) });
   }
 
   if (req.method === 'GET' && req.url === '/api/auth/me') {
@@ -190,7 +229,10 @@ async function handle(req, res) {
 
   if (req.method === 'POST' && req.url === '/api/auth/logout') {
     const auth = authenticate(req);
-    if (auth) sessions.delete(auth.claims.jti);
+    if (auth) {
+      sessions.delete(auth.claims.jti);
+      await persistSessions();
+    }
     return json(res, 200, { ok: true });
   }
   return json(res, 404, { error: 'Not found.' });
@@ -204,4 +246,9 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => process.stdout.write(`CampusLink auth API listening on port ${PORT}.\n`));
+loadSessions().then(() => {
+  server.listen(PORT, '0.0.0.0', () => process.stdout.write(`CampusLink auth API listening on port ${PORT}.\n`));
+}).catch((error) => {
+  process.stderr.write(`Could not restore CampusLink sessions: ${error.stack || error}\n`);
+  process.exitCode = 1;
+});
