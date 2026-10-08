@@ -85,7 +85,15 @@ function transactUsers(action) {
 }
 
 function publicUser(user) {
-  return { id: user.id, name: user.name, college: user.college, email: user.email };
+  return {
+    id: user.id,
+    name: user.name,
+    role: user.role || 'Student',
+    company: user.company || '',
+    college: user.college || '',
+    designation: user.designation || '',
+    email: user.email,
+  };
 }
 
 function json(res, status, data) {
@@ -163,31 +171,57 @@ async function handle(req, res) {
 
   if (req.method === 'POST' && req.url === '/api/auth/register') {
     const data = await bodyJson(req);
+    const role = data.role === 'Recruiter' ? 'Recruiter' : data.role === 'Placement' ? 'Placement' : 'Student';
     const name = String(data.name || '').trim();
-    const college = String(data.college || '').trim();
     const email = normalizeEmail(data.email);
-    const registrationNo = normalizeRegistration(data.registrationNo);
     const password = String(data.password || '');
-    if (name.length < 2 || name.length > 100) return json(res, 400, { error: 'Enter a valid student name.' });
-    if (college.length < 3 || college.length > 180) return json(res, 400, { error: 'Choose or enter your college.' });
-    if (registrationNo.length < 3 || registrationNo.length > 40) return json(res, 400, { error: 'Enter a valid registration number.' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return json(res, 400, { error: 'Enter a valid email address.' });
-    if ([...password].length < 15 || [...password].length > 128) return json(res, 400, { error: 'Use a passphrase with 15–128 characters.' });
 
-    const regDigest = registrationDigest(registrationNo);
+    if (name.length < 2 || name.length > 100) return json(res, 400, { error: 'Enter your full name.' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return json(res, 400, { error: 'Enter a valid email address.' });
+    if ([...password].length < 8 || [...password].length > 128) return json(res, 400, { error: 'Use a password with at least 8 characters.' });
+
+    let company = '';
+    let college = '';
+    let designation = String(data.designation || '').trim();
+    let regDigest = null;
+
+    if (role === 'Recruiter') {
+      company = String(data.company || '').trim();
+      if (company.length < 2 || company.length > 100) return json(res, 400, { error: 'Enter your company or organization name.' });
+    } else if (role === 'Placement') {
+      college = String(data.college || '').trim();
+      if (college.length < 3 || college.length > 180) return json(res, 400, { error: 'Choose or enter your college or institution name.' });
+    } else {
+      // Student
+      college = String(data.college || '').trim();
+      const registrationNo = normalizeRegistration(data.registrationNo);
+      if (college.length < 3 || college.length > 180) return json(res, 400, { error: 'Choose or enter your college.' });
+      if (registrationNo.length < 3 || registrationNo.length > 40) return json(res, 400, { error: 'Enter a valid registration number.' });
+      if ([...password].length < 15) return json(res, 400, { error: 'Use a passphrase with 15–128 characters.' });
+      regDigest = registrationDigest(registrationNo);
+    }
+
     const salt = crypto.randomBytes(16);
     const passwordHash = await scrypt(password, salt, PASSWORD_POLICY.keylen, {
       N: PASSWORD_POLICY.N, r: PASSWORD_POLICY.r, p: PASSWORD_POLICY.p, maxmem: 256 * 1024 * 1024,
     });
     const user = {
-      id: crypto.randomUUID(), name, college, email, registrationDigest: regDigest,
-      passwordHash: passwordHash.toString('hex'), passwordSalt: salt.toString('hex'),
+      id: crypto.randomUUID(),
+      role,
+      name,
+      email,
+      company,
+      college,
+      designation,
+      registrationDigest: regDigest,
+      passwordHash: passwordHash.toString('hex'),
+      passwordSalt: salt.toString('hex'),
       passwordParams: PASSWORD_POLICY,
       createdAt: new Date().toISOString(),
     };
     const result = await transactUsers((users) => {
       if (users.some((item) => item.email === email)) return { status: 409, error: 'An account already exists for that email. Try logging in.' };
-      if (users.some((item) => item.registrationDigest === regDigest)) return { status: 409, error: 'That student registration number is already in use.' };
+      if (regDigest && users.some((item) => item.registrationDigest === regDigest)) return { status: 409, error: 'That student registration number is already in use.' };
       users.push(user);
       return { save: true, status: 201, user };
     });

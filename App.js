@@ -133,7 +133,7 @@ function AppContent() {
   const [themeMode, setThemeMode] = useState('light');
   const [authMode, setAuthMode] = useState('register');
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [authForm, setAuthForm] = useState({ name: '', college: '', registrationNo: '', email: '', password: '' });
+  const [authForm, setAuthForm] = useState({ name: '', college: '', registrationNo: '', email: '', password: '', company: '', designation: '' });
   const [authError, setAuthError] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [authToken, setAuthToken] = useState('');
@@ -198,12 +198,15 @@ function AppContent() {
         try { if (cachedProfileStr) cachedProfile = JSON.parse(cachedProfileStr); } catch {}
 
         if (cachedUser) {
-          const accountStudent = cachedProfile || studentFromAccount(cachedUser);
+          const userRole = cachedUser.role || 'Student';
           setAuthUser(cachedUser);
           setAuthToken(token);
-          setRole('Student');
-          setStudents((current) => [...current.filter((person) => person.id !== cachedUser.id), accountStudent]);
-          setStudentId(cachedUser.id);
+          setRole(userRole);
+          if (userRole === 'Student') {
+            const accountStudent = cachedProfile || studentFromAccount(cachedUser);
+            setStudents((current) => [...current.filter((person) => person.id !== cachedUser.id), accountStudent]);
+            setStudentId(cachedUser.id);
+          }
           setEntryStep('app');
           introOpacity.setValue(1);
 
@@ -233,6 +236,7 @@ function AppContent() {
                 const payload = await response.json();
                 if (payload.user && active) {
                   setAuthUser(payload.user);
+                  if (payload.user.role) setRole(payload.user.role);
                   await safeStorageSet(AUTH_USER_KEY, JSON.stringify(payload.user));
                 }
               }
@@ -256,13 +260,16 @@ function AppContent() {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || 'Could not restore your session.');
         if (!active) return;
-        const accountStudent = studentFromAccount(payload.user);
+        const userRole = payload.user.role || 'Student';
         setAuthUser(payload.user);
         setAuthToken(token);
-        setRole('Student');
+        setRole(userRole);
         await safeStorageSet(AUTH_USER_KEY, JSON.stringify(payload.user));
-        setStudents((current) => [...current.filter((person) => person.id !== payload.user.id), accountStudent]);
-        setStudentId(payload.user.id);
+        if (userRole === 'Student') {
+          const accountStudent = studentFromAccount(payload.user);
+          setStudents((current) => [...current.filter((person) => person.id !== payload.user.id), accountStudent]);
+          setStudentId(payload.user.id);
+        }
         setEntryStep('app');
         introOpacity.setValue(1);
       } catch (error) {
@@ -309,21 +316,85 @@ function AppContent() {
 
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const setAuthValue = (key, value) => setAuthForm((current) => ({ ...current, [key]: value }));
-  const submitStudentAuth = async () => {
+  const submitAuth = async () => {
     setAuthError('');
     if (!API_BASE_URL) {
-      setAuthError('CampusLink account service is not configured in this app. Please install the latest build after the service is set up.');
+      setAuthError('CampusLink account service is not configured in this app.');
       return;
     }
-    if (authMode === 'register' && !authForm.college.trim()) {
-      setAuthError('Select your college or type its full name.');
+    const email = (authForm.email || '').trim();
+    const password = String(authForm.password || '');
+    if (authMode === 'register') {
+      const name = (authForm.name || '').trim();
+      if (!name) {
+        setAuthError(role === 'Recruiter' ? 'Enter recruiter or contact person name.' : 'Enter your full name.');
+        return;
+      }
+      if (role === 'Recruiter') {
+        const company = (authForm.company || '').trim();
+        if (!company) {
+          setAuthError('Enter your company or organization name.');
+          return;
+        }
+        if (password.length < 8) {
+          setAuthError('Choose a secure password with at least 8 characters.');
+          return;
+        }
+      } else if (role === 'Placement') {
+        const college = (authForm.college || '').trim();
+        if (!college) {
+          setAuthError('Enter your college or institution name.');
+          return;
+        }
+        if (password.length < 8) {
+          setAuthError('Choose a secure password with at least 8 characters.');
+          return;
+        }
+      } else {
+        const college = (authForm.college || '').trim();
+        const registrationNo = (authForm.registrationNo || '').trim();
+        if (!college) {
+          setAuthError('Select your college or type its full name.');
+          return;
+        }
+        if (!registrationNo) {
+          setAuthError('Enter your student registration number.');
+          return;
+        }
+        if (password.length < 15) {
+          setAuthError('Choose a passphrase with at least 15 characters.');
+          return;
+        }
+      }
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthError('Enter a valid email address.');
       return;
     }
+    if (!password) {
+      setAuthError('Enter your password.');
+      return;
+    }
+
     setAuthBusy(true);
     try {
+      const payloadBody = authMode === 'register'
+        ? {
+            role,
+            name: authForm.name.trim(),
+            email,
+            password,
+            company: (authForm.company || '').trim(),
+            college: (authForm.college || '').trim(),
+            designation: (authForm.designation || '').trim(),
+            registrationNo: (authForm.registrationNo || '').trim(),
+          }
+        : { email, password };
+
       const response = await fetch(`${API_BASE_URL}/api/auth/${authMode}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(authMode === 'register' ? authForm : { email: authForm.email, password: authForm.password }),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadBody),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Could not sign in.');
@@ -345,10 +416,15 @@ function AppContent() {
 
       setAuthUser(account);
       setAuthToken(payload.token);
-      setRole('Student');
-      const accountStudent = studentFromAccount(account);
-      setStudents((current) => [...current.filter((person) => person.id !== account.id), accountStudent]);
-      setStudentId(account.id);
+      const userRole = account.role || role;
+      setRole(userRole);
+
+      if (userRole === 'Student') {
+        const accountStudent = studentFromAccount(account);
+        setStudents((current) => [...current.filter((person) => person.id !== account.id), accountStudent]);
+        setStudentId(account.id);
+      }
+
       setTab('Home');
       notify(`Welcome back, ${account.name.split(' ')[0]}!`, account.id, 'Signed in');
       animateEntry('app');
@@ -362,7 +438,7 @@ function AppContent() {
       setAuthBusy(false);
     }
   };
-  const logoutStudent = async () => {
+  const logoutUser = async () => {
     try {
       await safeStorageDelete(AUTH_TOKEN_KEY);
       await safeStorageDelete(AUTH_USER_KEY);
@@ -379,12 +455,24 @@ function AppContent() {
     setAuthUser(null);
     setAuthMode('login');
     setAuthError('');
-    setAuthForm({ name: '', college: '', registrationNo: '', email: savedEmail || '', password: '' });
+    setAuthForm({ name: '', college: '', registrationNo: '', email: savedEmail || '', password: '', company: '', designation: '' });
     setTab('Home');
     notify('You have signed out from this device.', 'all', 'Logged out');
-    animateEntry('auth');
+    animateEntry('role');
   };
-  const openJobForm = () => { setForm({ company: '', title: '', location: '', description: '', skills: '', qualification: '', experienceYears: '' }); setJdAnalysis(null); setModal('job'); };
+  const openJobForm = () => {
+    setForm({
+      company: (authUser && authUser.role === 'Recruiter' && authUser.company) ? authUser.company : '',
+      title: '',
+      location: '',
+      description: '',
+      skills: '',
+      qualification: '',
+      experienceYears: '',
+    });
+    setJdAnalysis(null);
+    setModal('job');
+  };
   const analyzeCurrentJD = () => setJdAnalysis(parseJD(form.description || '', form.skills || '', form.qualification || '', form.experienceYears || ''));
   const addJob = () => {
     if (!(form.title || '').trim() || !(form.company || '').trim() || !(form.description || '').trim()) { notify('Add a company, role title, and job description first.', role, 'Job posting needs details'); return; }
@@ -543,7 +631,7 @@ function AppContent() {
               <Text style={s.autoLoginBadgeIcon}>🛡</Text>
               <Text style={s.autoLoginBadgeText}>Auto login active on this device</Text>
             </View>
-            <TouchableOpacity style={[s.buttonSoft, { marginTop: 12 }]} onPress={logoutStudent}>
+            <TouchableOpacity style={[s.buttonSoft, { marginTop: 12 }]} onPress={logoutUser}>
               <Text style={s.buttonSoftText}>Log out</Text>
             </TouchableOpacity>
           </View>
@@ -551,7 +639,35 @@ function AppContent() {
         <InfoBox title="Profile privacy" body="Recruiter views show only the academic and career details needed to explain job fit. Your account password is verified by the CampusLink auth server and is never included in your student profile." />
       </>;
     }
-    if (role === 'Recruiter') return <><Hero eyebrow="MATCHING EXPLAINED" title="Fairness and privacy." subtitle="Score components are visible and consistent across candidates." /><InfoBox title="Scoring policy" body="Fit score uses skills (65%), qualification (20%), experience (10%), and readiness (5%). Name and contact information are not scoring inputs. Every candidate remains reviewable; score alone never rejects a person." /><Section title="Your active jobs" />{jobs.map((job) => <TouchableOpacity key={job.id} style={s.selectJob} onPress={() => { setSelectedJobId(job.id); setTab('Jobs'); }}><View style={s.grow}><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.company} · {job.requiredSkills.length} required skills</Text></View><Text style={s.link}>Matches ›</Text></TouchableOpacity>)}</>;
+    if (role === 'Recruiter') {
+      return <>
+        <Hero eyebrow="COMPANY PROFILE" title={authUser ? authUser.company || authUser.name : 'Recruiter Workspace'} subtitle="Manage active job listings, verify matching criteria, and view candidate pools." />
+        {!!authUser && (
+          <View style={s.card}>
+            <View style={s.rowBetween}>
+              <View style={s.grow}>
+                <Text style={s.overline}>REGISTERED RECRUITER ACCOUNT</Text>
+                <Text style={s.cardTitle}>{authUser.company || 'Hiring Company'}</Text>
+                <Text style={s.muted}>{authUser.name}{authUser.designation ? ` · ${authUser.designation}` : ''}</Text>
+                <Text style={s.muted}>{authUser.email}</Text>
+              </View>
+              <View style={s.scorePill}><Text style={s.scoreText}>Active</Text><Text style={s.scoreCaption}>verified</Text></View>
+            </View>
+            <View style={s.autoLoginBadge}>
+              <Text style={s.autoLoginBadgeIcon}>🛡</Text>
+              <Text style={s.autoLoginBadgeText}>Auto login active on this device</Text>
+            </View>
+            <TouchableOpacity style={[s.buttonSoft, { marginTop: 12 }]} onPress={logoutUser}>
+              <Text style={s.buttonSoftText}>Log out of company account</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <Section title="Fairness and scoring policy" />
+        <InfoBox title="Scoring policy" body="Fit score uses skills (65%), qualification (20%), experience (10%), and readiness (5%). Name and contact information are not scoring inputs. Every candidate remains reviewable; score alone never rejects a person." />
+        <Section title="Your active jobs" action="＋ Post new JD" onPress={openJobForm} />
+        {jobs.filter((job) => !authUser || !authUser.company || job.company.toLowerCase() === authUser.company.toLowerCase() || job.createdBy === 'Recruiter' || job.createdBy === 'CampusLink sample').map((job) => <TouchableOpacity key={job.id} style={s.selectJob} onPress={() => { setSelectedJobId(job.id); setTab('Jobs'); }}><View style={s.grow}><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.company} · {job.requiredSkills.length} required skills</Text></View><Text style={s.link}>Matches ›</Text></TouchableOpacity>)}
+      </>;
+    }
     const placed = applications.filter((item) => item.stage === 'Joined').length;
     const dropped = applications.filter((item) => item.stage === 'Declined').length;
     const supportNeeded = students.filter((person) => person.readiness < 72 || (selectedJob && evaluate(person, selectedJob).missing.length >= 2));
@@ -679,30 +795,46 @@ function AppContent() {
         <Text style={s.roleIntroTitle}>Which path{ '\n' }are you on?</Text>
         <Text style={s.roleIntroSubtitle}>Choose your role to open a workspace built around you.</Text>
         {[
-          ['Student', '🎓', 'Discover roles, see your fit, and grow your skills.', '#75E6DE'],
-          ['Placement', '🧭', 'Coordinate campus drives and help students move forward.', '#FFC56E'],
-          ['Recruiter', '✦', 'Post a role and find talent with explainable matches.', '#C4A5FF'],
-        ].map(([name, icon, description, accent]) => <TouchableOpacity key={name} style={s.roleChoiceCard} onPress={() => { setRole(name); if (name === 'Student') { setAuthMode('register'); setAuthError(''); animateEntry('auth'); } else enterApp(name); }} accessibilityRole="button" accessibilityLabel={`${name === 'Placement' ? 'Placement Officer' : name} workspace`}><View style={[s.roleChoiceIcon, { borderColor: `${accent}66`, backgroundColor: `${accent}1A` }]}><Text style={s.roleChoiceEmoji}>{icon}</Text></View><View style={s.roleChoiceText}><Text style={s.roleChoiceName}>{name === 'Placement' ? 'Placement Officer' : name}</Text><Text style={s.roleChoiceDescription}>{description}</Text></View><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>)}
+          ['Student', '🎓', 'Student Space', 'Discover roles, see your fit, and close skill gaps.', '#75E6DE'],
+          ['Recruiter', '🏢', 'Placement Company / Recruiter', 'Register company, post roles, and shortlist candidate talent.', '#C4A5FF'],
+          ['Placement', '🧭', 'Placement Officer', 'Coordinate campus drives and help students move forward.', '#FFC56E'],
+        ].map(([name, icon, displayName, description, accent]) => <TouchableOpacity key={name} style={s.roleChoiceCard} onPress={() => { setRole(name); setAuthMode('register'); setAuthError(''); animateEntry('auth'); }} accessibilityRole="button" accessibilityLabel={`${displayName} workspace`}><View style={[s.roleChoiceIcon, { borderColor: `${accent}66`, backgroundColor: `${accent}1A` }]}><Text style={s.roleChoiceEmoji}>{icon}</Text></View><View style={s.roleChoiceText}><Text style={s.roleChoiceName}>{displayName}</Text><Text style={s.roleChoiceDescription}>{description}</Text></View><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>)}
         <Text style={s.introFooter}>Your workspace is ready for your role.</Text>
       </Animated.View>
     ) : (
       <Animated.View style={[s.roleIntroContent, { opacity: introOpacity }]}>
         <TouchableOpacity style={s.backButton} onPress={() => animateEntry('role')}><Text style={s.backButtonText}>‹  Back to roles</Text></TouchableOpacity>
-        <Text style={s.introEyebrow}>STUDENT SPACE · CAMPUSLINK</Text>
-        <Text style={s.roleIntroTitle}>{authMode === 'register' ? 'Create your account.' : 'Welcome back.'}</Text>
-        <Text style={s.roleIntroSubtitle}>Register once, then log in with your email and password.</Text>
+        <Text style={s.introEyebrow}>{role === 'Recruiter' ? 'PLACEMENT COMPANY & RECRUITER' : role === 'Placement' ? 'PLACEMENT OFFICE · CAMPUSLINK' : 'STUDENT SPACE · CAMPUSLINK'}</Text>
+        <Text style={s.roleIntroTitle}>{authMode === 'register' ? (role === 'Recruiter' ? 'Register your company.' : role === 'Placement' ? 'Placement registration.' : 'Create student account.') : (role === 'Recruiter' ? 'Company sign in.' : 'Welcome back.')}</Text>
+        <Text style={s.roleIntroSubtitle}>{authMode === 'register' ? (role === 'Recruiter' ? 'Register once to post roles, review candidate matches, and manage campus hiring.' : role === 'Placement' ? 'Register your placement cell to coordinate drives and track student placement.' : 'Register once, then log in with your email and password.') : (role === 'Recruiter' ? 'Sign in with your corporate email to access your company dashboard.' : 'Log in with your email and password to open your workspace.')}</Text>
         <View style={s.authModeRow}>
-          {['register', 'login'].map((mode) => <TouchableOpacity key={mode} style={[s.authModeTab, authMode === mode && s.authModeSelected]} onPress={async () => { setAuthMode(mode); setAuthError(''); if (mode === 'login' && !authForm.email) { const saved = await safeStorageGet(SAVED_EMAIL_KEY); if (saved) setAuthForm((curr) => ({ ...curr, email: saved })); } }}><Text style={[s.authModeText, authMode === mode && s.authModeTextSelected]}>{mode === 'register' ? 'Register' : 'Log in'}</Text></TouchableOpacity>)}
+          {['register', 'login'].map((mode) => <TouchableOpacity key={mode} style={[s.authModeTab, authMode === mode && s.authModeSelected]} onPress={async () => { setAuthMode(mode); setAuthError(''); if (mode === 'login' && !authForm.email) { const saved = await safeStorageGet(SAVED_EMAIL_KEY); if (saved) setAuthForm((curr) => ({ ...curr, email: saved })); } }}><Text style={[s.authModeText, authMode === mode && s.authModeTextSelected]}>{mode === 'register' ? (role === 'Recruiter' ? 'Register Company' : 'Register') : 'Log in'}</Text></TouchableOpacity>)}
         </View>
-        {authMode === 'register' && <>
+        {authMode === 'register' && role === 'Recruiter' && <>
+          <Text style={s.authLabel}>Company / organization name</Text>
+          <TextInput style={s.authInput} value={authForm.company} onChangeText={(value) => setAuthValue('company', value)} placeholder="e.g. Northstar Labs, Tata Consultancy Services" placeholderTextColor="#AAB6D0" autoCapitalize="words" />
+          <Text style={s.authLabel}>Recruiter / HR representative name</Text>
+          <TextInput style={s.authInput} value={authForm.name} onChangeText={(value) => setAuthValue('name', value)} placeholder="Your full name" placeholderTextColor="#AAB6D0" autoCapitalize="words" autoComplete="name" />
+          <Text style={s.authLabel}>Designation / role (optional)</Text>
+          <TextInput style={s.authInput} value={authForm.designation} onChangeText={(value) => setAuthValue('designation', value)} placeholder="e.g. Campus Talent Lead, HR Manager" placeholderTextColor="#AAB6D0" autoCapitalize="words" />
+        </>}
+        {authMode === 'register' && role === 'Placement' && <>
+          <Text style={s.authLabel}>College / institution name</Text>
+          <TextInput style={s.authInput} value={authForm.college} onChangeText={(value) => setAuthValue('college', value)} placeholder="e.g. College of Engineering & Technology" placeholderTextColor="#AAB6D0" autoCapitalize="words" />
+          <Text style={s.authLabel}>Placement officer name</Text>
+          <TextInput style={s.authInput} value={authForm.name} onChangeText={(value) => setAuthValue('name', value)} placeholder="Your full name" placeholderTextColor="#AAB6D0" autoCapitalize="words" autoComplete="name" />
+          <Text style={s.authLabel}>Designation (optional)</Text>
+          <TextInput style={s.authInput} value={authForm.designation} onChangeText={(value) => setAuthValue('designation', value)} placeholder="e.g. Head of Training & Placement" placeholderTextColor="#AAB6D0" autoCapitalize="words" />
+        </>}
+        {authMode === 'register' && role === 'Student' && <>
           <Text style={s.authLabel}>Student name</Text><TextInput style={s.authInput} value={authForm.name} onChangeText={(value) => setAuthValue('name', value)} placeholder="Your full name" placeholderTextColor="#AAB6D0" autoCapitalize="words" autoComplete="name" />
           <Text style={s.authLabel}>College / university · Khordha district</Text><TextInput style={s.authInput} value={authForm.college} onFocus={() => { setCollegeQuery(''); setShowCollegeList(true); }} onChangeText={(value) => { setAuthValue('college', value); setCollegeQuery(value); setShowCollegeList(true); }} placeholder="Tap to browse or search college" placeholderTextColor="#AAB6D0" autoCapitalize="words" />
           {showCollegeList && <ScrollView style={s.collegeSuggestions} nestedScrollEnabled keyboardShouldPersistTaps="handled">{BHUBANESWAR_COLLEGES.filter((college) => !collegeQuery || college.toLowerCase().includes(collegeQuery.toLowerCase())).map((college) => <TouchableOpacity key={college} style={s.collegeSuggestion} onPress={() => { setAuthValue('college', college === 'Other / college not listed' ? '' : college); setCollegeQuery(''); setShowCollegeList(false); }}><Text style={s.authSuggestionText}>{college}</Text></TouchableOpacity>)}</ScrollView>}
           <Text style={s.authLabel}>Student registration number</Text><TextInput style={s.authInput} value={authForm.registrationNo} onChangeText={(value) => setAuthValue('registrationNo', value)} placeholder="College registration number" placeholderTextColor="#AAB6D0" autoCapitalize="characters" />
         </>}
-        <Text style={s.authLabel}>Email address</Text><TextInput style={s.authInput} value={authForm.email} onChangeText={(value) => setAuthValue('email', value)} placeholder="you@example.com" placeholderTextColor="#AAB6D0" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
-        <Text style={s.authLabel}>Password</Text><View style={s.authPasswordRow}><TextInput style={[s.authInput, s.authPasswordInput]} value={authForm.password} onChangeText={(value) => setAuthValue('password', value)} placeholder={authMode === 'register' ? 'Create a 15+ character passphrase' : 'Enter your password'} placeholderTextColor="#AAB6D0" secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false} autoComplete={authMode === 'register' ? 'new-password' : 'password'} /><TouchableOpacity style={s.passwordVisibilityButton} onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}><View style={s.eyeIcon}><View style={s.eyePupil} />{!passwordVisible && <View style={s.eyeSlash} />}</View></TouchableOpacity></View>
-        {authMode === 'register' && <Text style={s.authHint}>Choose your own password with at least 15 characters. For example, combine several words with numbers or symbols; don’t reuse someone else’s password.</Text>}
+        <Text style={s.authLabel}>{role === 'Recruiter' ? 'Work / corporate email address' : 'Email address'}</Text><TextInput style={s.authInput} value={authForm.email} onChangeText={(value) => setAuthValue('email', value)} placeholder={role === 'Recruiter' ? 'recruiter@company.com' : 'you@example.com'} placeholderTextColor="#AAB6D0" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
+        <Text style={s.authLabel}>Password</Text><View style={s.authPasswordRow}><TextInput style={[s.authInput, s.authPasswordInput]} value={authForm.password} onChangeText={(value) => setAuthValue('password', value)} placeholder={authMode === 'register' ? (role === 'Student' ? 'Create a 15+ character passphrase' : 'Create password (min 8 characters)') : 'Enter your password'} placeholderTextColor="#AAB6D0" secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false} autoComplete={authMode === 'register' ? 'new-password' : 'password'} /><TouchableOpacity style={s.passwordVisibilityButton} onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}><View style={s.eyeIcon}><View style={s.eyePupil} />{!passwordVisible && <View style={s.eyeSlash} />}</View></TouchableOpacity></View>
+        {authMode === 'register' && <Text style={s.authHint}>{role === 'Student' ? 'Choose your own password with at least 15 characters. For example, combine several words with numbers or symbols; don’t reuse someone else’s password.' : 'Choose a secure password with at least 8 characters. Passwords are encrypted on the server.'}</Text>}
         <TouchableOpacity style={s.autoLoginRow} onPress={() => setAutoLogin((current) => !current)} activeOpacity={0.8} accessibilityRole="checkbox" accessibilityState={{ checked: autoLogin }} accessibilityLabel="Keep me signed in with auto login">
           <View style={[s.checkbox, autoLogin && s.checkboxChecked]}>{autoLogin && <Text style={s.checkboxCheck}>✓</Text>}</View>
           <View style={s.autoLoginTextWrap}>
@@ -711,14 +843,15 @@ function AppContent() {
           </View>
         </TouchableOpacity>
         {!!authError && <Text style={s.authError} accessibilityRole="alert">{authError}</Text>}
-        <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitStudentAuth} disabled={authBusy}><Text style={s.introButtonText}>{authBusy ? 'Please wait…' : authMode === 'register' ? 'Create account' : 'Log in'}</Text><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>
-        <Text style={s.introFooter}>Your password is hashed on the auth server; it is never saved as readable text.</Text>
+        <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitAuth} disabled={authBusy}><Text style={s.introButtonText}>{authBusy ? 'Please wait…' : authMode === 'register' ? (role === 'Recruiter' ? 'Register company & enter' : 'Create account') : 'Log in'}</Text><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>
+        <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => enterApp(role)}><Text style={{ color: '#75E6DE', fontSize: 11, fontWeight: '700' }}>Or explore sample workspace as guest ›</Text></TouchableOpacity>
+        <Text style={s.introFooter}>Your password is securely hashed on the auth server; it is never saved as readable text.</Text>
       </Animated.View>
     );
     return <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: Math.max(insets.bottom, 12) }]}><StatusBar barStyle="light-content" backgroundColor="#0B1024" translucent={Platform.OS === 'android'} /><View style={s.introBackdrop}><View style={s.backdropOrbA} /><View style={s.backdropOrbB} /><View style={s.backdropGrid} /></View><ScrollView contentContainerStyle={s.introScrollContent} showsVerticalScrollIndicator={false}>{entryContent}</ScrollView></View>;
   }
   return <View style={[s.safe, { paddingTop: topInset, paddingBottom: insets.bottom }]}><StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={palette.bg} translucent={Platform.OS === 'android'} />
-    <View style={s.topbar}><View style={s.brandMark}><Text style={s.brandMarkText}>C</Text></View><Text style={s.brand}>Campus<Text style={{ color: palette.blue }}>Link</Text></Text><TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity><TouchableOpacity style={s.headerButton} onPress={() => setTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity><View style={s.miniAvatar}><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? 'RC' : 'PO'}</Text></View></View>
+    <View style={s.topbar}><View style={s.brandMark}><Text style={s.brandMarkText}>C</Text></View><Text style={s.brand}>Campus<Text style={{ color: palette.blue }}>Link</Text></Text><TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity><TouchableOpacity style={s.headerButton} onPress={() => setTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity><View style={s.miniAvatar}><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></View></View>
     {role === 'Student' && !authUser && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.studentPicker} contentContainerStyle={s.studentPickerContent}>{students.map((person) => <TouchableOpacity key={person.id} onPress={() => setStudentId(person.id)} style={[s.personChip, student.id === person.id && s.personChipSelected]}><Text style={[s.personChipText, student.id === person.id && s.personChipTextSelected]}>{person.name}</Text></TouchableOpacity>)}</ScrollView>}
     <ScrollView key={`${role}-${tab}-${student.id}`} style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{content}</ScrollView>
     <View style={s.nav}>{TABS.map(([name, icon]) => <TouchableOpacity style={s.navItem} key={name} onPress={() => { setTab(name); setQuery(''); if (name === 'Inbox') setInbox((current) => current.map((item) => ({ ...item, unread: false }))); }}><Text style={[s.navIcon, tab === name && s.navActiveText]}>{icon}</Text><Text style={[s.navLabel, tab === name && s.navLabelSelected]}>{role === 'Placement' && name === 'Profile' ? 'Analytics' : name}</Text></TouchableOpacity>)}</View>
