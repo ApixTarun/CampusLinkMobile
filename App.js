@@ -52,7 +52,7 @@ async function safeStorageDelete(key) {
 const metroHost = NativeModules.SourceCode?.scriptURL?.match(/^https?:\/\/([^/:]+)/)?.[1];
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || (metroHost
   ? `http://${metroHost}:4000`
-  : __DEV__ ? Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000' : '');
+  : __DEV__ ? Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000' : 'https://campuslinkmobile.onrender.com');
 
 const START_STUDENTS = [
   { id: 's-aarav', name: 'Aarav Shah', degree: 'B.Tech', major: 'Computer Science', year: 'Final year · 2026', cgpa: '7.8', skills: ['React', 'SQL', 'Python', 'Communication', 'Product thinking'], projects: ['Campus event dashboard · React, SQL', 'Student survey analysis · Python'], certifications: ['SQL for Data Analysis'], internships: ['Product intern · 2 months'], readiness: 76, aptitude: '76/100' },
