@@ -690,6 +690,31 @@ function AppContent() {
       <View style={s.metricRow}><Metric value={String(students.length)} label="Students" /><Metric value={String(placed)} label="Joined" /><Metric value={String(dropped)} label="Drop-off" last /></View>
       <Section title="Early support signals" />{supportNeeded.map((person) => <View style={s.riskRow} key={person.id}><View style={s.avatar}><Text style={s.avatarText}>{initials(person.name)}</Text></View><View style={s.grow}><Text style={s.cardTitle}>{person.name}</Text><Text style={s.muted}>Readiness {person.readiness}% · support plan {supportPlans[person.id] ? 'assigned' : 'needed'}</Text></View><TouchableOpacity style={s.smallButton} onPress={() => { setSupportPlans((current) => ({ ...current, [person.id]: true })); notify(`Support plan assigned to ${person.name}.`, 'Placement', 'Student support'); }}><Text style={s.smallButtonText}>{supportPlans[person.id] ? 'Assigned ✓' : 'Assign'}</Text></TouchableOpacity></View>)}
       <Section title="Application funnel" />{funnelCard(applications)}<InfoBox title="Data note" body="Counts reflect only actions in this local demo session. Early support signals use the visible readiness score and current job skill gaps, not protected characteristics." />
+      <Section title="Placement cell account" />
+      {!!authUser ? (
+        <View style={s.card}>
+          <View style={s.rowBetween}>
+            <View style={s.grow}>
+              <Text style={s.overline}>REGISTERED PLACEMENT CELL</Text>
+              <Text style={s.cardTitle}>{authUser.college || 'Placement Cell'}</Text>
+              <Text style={s.muted}>{authUser.name}{authUser.designation ? ` · ${authUser.designation}` : ''}</Text>
+              <Text style={s.muted}>{authUser.email}</Text>
+            </View>
+            <View style={s.scorePill}><Text style={s.scoreText}>Active</Text><Text style={s.scoreCaption}>verified</Text></View>
+          </View>
+          <View style={s.autoLoginBadge}>
+            <Text style={s.autoLoginBadgeIcon}>🛡</Text>
+            <Text style={s.autoLoginBadgeText}>Auto login active on this device</Text>
+          </View>
+          <TouchableOpacity style={[s.buttonSoft, { marginTop: 12 }]} onPress={logoutUser}>
+            <Text style={s.buttonSoftText}>Log out of placement account</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={[s.buttonSoft, { marginTop: 12, marginBottom: 8 }]} onPress={logoutUser}>
+          <Text style={s.buttonSoftText}>Switch role / Sign in</Text>
+        </TouchableOpacity>
+      )}
     </>;
   };
 
@@ -761,6 +786,34 @@ function AppContent() {
     const candidate = students.find((item) => item.id === candidateDetailId) || student;
     return <Modal visible={modal === 'candidate'} transparent animationType="fade" onRequestClose={() => setModal('')}><View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView><View style={s.rowBetween}><Text style={s.modalTitle}>{candidate.name}</Text><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View><Text style={s.muted}>{candidate.degree} · {candidate.major} · {candidate.year}</Text><ProfileList title="Academic and readiness" values={[`CGPA ${candidate.cgpa}`, `Aptitude ${candidate.aptitude}`, `Readiness ${candidate.readiness}/100`]} /><ProfileList title="Skills" values={candidate.skills} /><ProfileList title="Projects" values={candidate.projects} /><ProfileList title="Certifications" values={candidate.certifications} /><ProfileList title="Internships" values={candidate.internships} /><InfoBox title="Privacy" body="Contact details are not collected or shown in this prototype. Use candidate information only for placement evaluation." /><TouchableOpacity style={s.button} onPress={() => setModal('')}><Text style={s.buttonText}>Close profile</Text></TouchableOpacity></ScrollView></View></View></Modal>;
   };
+
+  const accountModal = () => <Modal visible={modal === 'account'} transparent animationType="slide" onRequestClose={() => setModal('')}>
+    <View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView keyboardShouldPersistTaps="handled">
+      <View style={s.rowBetween}><Text style={s.modalTitle}>Your Account</Text><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View>
+      <View style={[s.card, { marginTop: 12, marginBottom: 12 }]}>
+        <View style={s.rowBetween}>
+          <View style={s.grow}>
+            <Text style={s.overline}>{role === 'Student' ? 'STUDENT ACCOUNT' : role === 'Recruiter' ? 'RECRUITER ACCOUNT' : 'PLACEMENT OFFICER ACCOUNT'}</Text>
+            <Text style={s.cardTitle}>{authUser ? (role === 'Recruiter' ? (authUser.company || authUser.name) : (authUser.name || 'Placement Officer')) : (role === 'Student' ? student.name : role === 'Recruiter' ? 'Guest Recruiter' : 'Guest Placement Cell')}</Text>
+            <Text style={s.muted}>{authUser ? (authUser.college || authUser.company || 'Campus Placement Cell') : 'Exploring as guest'}</Text>
+            {!!authUser?.email && <Text style={s.muted}>{authUser.email}</Text>}
+            {!!authUser?.designation && <Text style={s.muted}>Role: {authUser.designation}</Text>}
+          </View>
+          <View style={s.scorePill}><Text style={s.scoreText}>{authUser ? 'Active' : 'Guest'}</Text><Text style={s.scoreCaption}>{authUser ? 'verified' : 'session'}</Text></View>
+        </View>
+        {!!authUser && (
+          <View style={s.autoLoginBadge}>
+            <Text style={s.autoLoginBadgeIcon}>🛡</Text>
+            <Text style={s.autoLoginBadgeText}>Auto login active on this device</Text>
+          </View>
+        )}
+        <TouchableOpacity style={[s.buttonSoft, { marginTop: 14 }]} onPress={() => { setModal(''); logoutUser(); }}>
+          <Text style={s.buttonSoftText}>{authUser ? `Log out of ${role === 'Placement' ? 'placement' : role.toLowerCase()} account` : 'Switch role / Sign in'}</Text>
+        </TouchableOpacity>
+      </View>
+      <TouchableOpacity style={s.button} onPress={() => setModal('')}><Text style={s.buttonText}>Close</Text></TouchableOpacity>
+    </ScrollView></View></View>
+  </Modal>;
 
   let content;
   if (tab === 'Jobs') content = jobsScreen();
@@ -866,12 +919,12 @@ function AppContent() {
     return <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: Math.max(insets.bottom, 12) }]}><StatusBar barStyle="light-content" backgroundColor="#0B1024" translucent={Platform.OS === 'android'} /><View style={s.introBackdrop}><View style={s.backdropOrbA} /><View style={s.backdropOrbB} /><View style={s.backdropGrid} /></View><ScrollView contentContainerStyle={s.introScrollContent} showsVerticalScrollIndicator={false}>{entryContent}</ScrollView></View>;
   }
   return <View style={[s.safe, { paddingTop: topInset, paddingBottom: insets.bottom }]}><StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={palette.bg} translucent={Platform.OS === 'android'} />
-    <View style={s.topbar}><View style={s.brandMark}><Text style={s.brandMarkText}>C</Text></View><Text style={s.brand}>Campus<Text style={{ color: palette.blue }}>Link</Text></Text><TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity><TouchableOpacity style={s.headerButton} onPress={() => setTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity><View style={s.miniAvatar}><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></View></View>
+    <View style={s.topbar}><View style={s.brandMark}><Text style={s.brandMarkText}>C</Text></View><Text style={s.brand}>Campus<Text style={{ color: palette.blue }}>Link</Text></Text><TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity><TouchableOpacity style={s.headerButton} onPress={() => setTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity><TouchableOpacity style={s.miniAvatar} onPress={() => setModal('account')} accessibilityRole="button" accessibilityLabel="Account details and log out"><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></TouchableOpacity></View>
     {role === 'Student' && !authUser && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.studentPicker} contentContainerStyle={s.studentPickerContent}>{students.map((person) => <TouchableOpacity key={person.id} onPress={() => setStudentId(person.id)} style={[s.personChip, student.id === person.id && s.personChipSelected]}><Text style={[s.personChipText, student.id === person.id && s.personChipTextSelected]}>{person.name}</Text></TouchableOpacity>)}</ScrollView>}
     <ScrollView key={`${role}-${tab}-${student.id}`} style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{content}</ScrollView>
     <View style={s.nav}>{TABS.map(([name, icon]) => <TouchableOpacity style={s.navItem} key={name} onPress={() => { setTab(name); setQuery(''); if (name === 'Inbox') setInbox((current) => current.map((item) => ({ ...item, unread: false }))); }}><Text style={[s.navIcon, tab === name && s.navActiveText]}>{icon}</Text><Text style={[s.navLabel, tab === name && s.navLabelSelected]}>{role === 'Placement' && name === 'Profile' ? 'Analytics' : name}</Text></TouchableOpacity>)}</View>
     {!!notice && <View style={s.toast} pointerEvents="none"><Text style={s.toastText}>{notice}</Text></View>}
-    {formModal()}{openSelectedJobDetails()}{candidateModal()}
+    {formModal()}{openSelectedJobDetails()}{candidateModal()}{accountModal()}
   </View>;
 }
 
