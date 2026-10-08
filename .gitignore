@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+dist/
+web-build/
+server/data/
+.env
+.env.*
+!.env.example
+.campuslink-secret

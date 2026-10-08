@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "CampusLink",
+    "slug": "campuslink-mobile",
+    "version": "1.0.0",
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.campuslink.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#13264A",
+        "monochromeImage": "./assets/monochrome-icon.png"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "eb719c4c-c720-4f58-902e-6b1b8cb6dff6"
+      }
+    }
+  }
+}

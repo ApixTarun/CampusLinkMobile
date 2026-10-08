@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: campuslink-auth
+    runtime: node
+    region: singapore
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run server
+    healthCheckPath: /health
+    disk:
+      name: campuslink-auth-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CAMPUSLINK_DATA_DIR
+        value: /var/data
+      - key: CAMPUSLINK_AUTH_SECRET
+        generateValue: true
