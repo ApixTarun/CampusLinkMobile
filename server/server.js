@@ -253,6 +253,33 @@ async function handle(req, res) {
     return json(res, 200, { user: publicUser(user), token: await issueToken(user) });
   }
 
+  if (req.method === 'POST' && (req.url === '/api/auth/reset-password' || req.url === '/api/auth/forgot-password')) {
+    const data = await bodyJson(req);
+    const email = normalizeEmail(data.email);
+    const newPassword = String(data.newPassword || data.password || '');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return json(res, 400, { error: 'Enter a valid email address.' });
+    }
+    if ([...newPassword].length < 8 || [...newPassword].length > 128) {
+      return json(res, 400, { error: 'Use a password with at least 8 characters.' });
+    }
+    const salt = crypto.randomBytes(16);
+    const passwordHash = await scrypt(newPassword, salt, PASSWORD_POLICY.keylen, {
+      N: PASSWORD_POLICY.N, r: PASSWORD_POLICY.r, p: PASSWORD_POLICY.p, maxmem: 256 * 1024 * 1024,
+    });
+    const result = await transactUsers((users) => {
+      const user = users.find((item) => item.email === email);
+      if (!user) return { status: 404, error: 'No account registered with that email address. Check email or register first.' };
+      user.passwordHash = passwordHash.toString('hex');
+      user.passwordSalt = salt.toString('hex');
+      user.passwordParams = PASSWORD_POLICY;
+      user.updatedAt = new Date().toISOString();
+      return { save: true, status: 200, user };
+    });
+    if (result.status !== 200) return json(res, result.status, { error: result.error });
+    return json(res, 200, { ok: true, message: 'Password reset successfully. You can now log in.', user: publicUser(result.user) });
+  }
+
   if (req.method === 'GET' && req.url === '/api/auth/me') {
     const auth = authenticate(req);
     if (!auth) return json(res, 401, { error: 'Please log in again.' });

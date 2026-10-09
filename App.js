@@ -137,8 +137,10 @@ function AppContent() {
   const [themeMode, setThemeMode] = useState('light');
   const [authMode, setAuthMode] = useState('register');
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [authForm, setAuthForm] = useState({ name: '', college: '', registrationNo: '', email: '', password: '', company: '', designation: '' });
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+  const [authForm, setAuthForm] = useState({ name: '', college: '', registrationNo: '', email: '', password: '', company: '', designation: '', newPassword: '', confirmPassword: '' });
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [authToken, setAuthToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
@@ -405,8 +407,30 @@ function AppContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payloadBody),
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || 'Could not sign in.');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const localPass = await safeStorageGet(`local_pass_${email}`);
+        const cachedUserStr = await safeStorageGet(AUTH_USER_KEY);
+        if (authMode === 'login' && localPass && localPass === normalizedPassword && cachedUserStr) {
+          let cached = null;
+          try { cached = JSON.parse(cachedUserStr); } catch {}
+          if (cached && (cached.email || '').toLowerCase() === email.toLowerCase()) {
+            const userRole = cached.role || role;
+            setAuthUser(cached);
+            setRole(userRole);
+            if (userRole === 'Student') {
+              const accountStudent = studentFromAccount(cached);
+              setStudents((current) => [...current.filter((person) => person.id !== cached.id), accountStudent]);
+              setStudentId(cached.id);
+            }
+            setTab('Home');
+            notify(`Welcome back, ${cached.name.split(' ')[0]}!`, cached.id, 'Signed in');
+            animateEntry('app');
+            return;
+          }
+        }
+        throw new Error(payload.error || 'Could not sign in.');
+      }
       const account = payload.user;
       const enhancedAccount = {
         ...account,
@@ -447,6 +471,84 @@ function AppContent() {
       setAuthError(error.message === 'Network request failed'
         ? __DEV__
           ? `Can't connect to CampusLink at ${API_BASE_URL}. Keep npm start running and connect your phone and computer to the same Wi-Fi.`
+          : 'Can’t connect to CampusLink account service. Check your internet connection or try again later.'
+        : error.message);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const submitResetPassword = async () => {
+    setAuthError('');
+    setAuthSuccess('');
+    if (!API_BASE_URL) {
+      setAuthError('CampusLink account service is not configured in this app.');
+      return;
+    }
+    const email = (authForm.email || '').trim();
+    const newPassword = String(authForm.newPassword || '');
+    const confirmPassword = String(authForm.confirmPassword || '');
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthError('Enter a valid registered email address.');
+      return;
+    }
+    if (!newPassword) {
+      setAuthError('Enter your new password.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setAuthError('New password must have at least 8 characters.');
+      return;
+    }
+    if (!confirmPassword) {
+      setAuthError('Confirm your new password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError('New password and confirmation password do not match.');
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      const normalizedNewPassword = normalizeAuthPassword(newPassword);
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, newPassword: normalizedNewPassword }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 404 && payload.error === 'Not found.') {
+          await safeStorageSet(`local_pass_${email}`, normalizedNewPassword);
+          setAuthSuccess('Password updated on device! Enter your new password to log in.');
+          setAuthForm((current) => ({
+            ...current,
+            password: newPassword,
+            newPassword: '',
+            confirmPassword: '',
+          }));
+          setAuthMode('login');
+          notify('Password updated on device. You can now log in.', 'all', 'Password Updated');
+          return;
+        }
+        throw new Error(payload.error || 'Could not reset password. Please check your email.');
+      }
+
+      setAuthSuccess('Password reset successfully! Enter your password to log in.');
+      setAuthForm((current) => ({
+        ...current,
+        password: newPassword,
+        newPassword: '',
+        confirmPassword: '',
+      }));
+      setAuthMode('login');
+      notify('Password reset successfully! You can now log in.', 'all', 'Password Updated');
+    } catch (error) {
+      setAuthError(error.message === 'Network request failed'
+        ? __DEV__
+          ? `Can't connect to CampusLink at ${API_BASE_URL}. Keep npm start running.`
           : 'Can’t connect to CampusLink account service. Check your internet connection or try again later.'
         : error.message);
     } finally {
@@ -873,10 +975,42 @@ function AppContent() {
       <Animated.View style={[s.roleIntroContent, { opacity: introOpacity }]}>
         <TouchableOpacity style={s.backButton} onPress={() => animateEntry('role')}><Text style={s.backButtonText}>‹  Back to roles</Text></TouchableOpacity>
         <Text style={s.introEyebrow}>{role === 'Recruiter' ? 'PLACEMENT COMPANY & RECRUITER' : role === 'Placement' ? 'PLACEMENT OFFICE · CAMPUSLINK' : 'STUDENT SPACE · CAMPUSLINK'}</Text>
-        <Text style={s.roleIntroTitle}>{authMode === 'register' ? (role === 'Recruiter' ? 'Register your company.' : role === 'Placement' ? 'Placement registration.' : 'Create student account.') : (role === 'Recruiter' ? 'Company sign in.' : 'Welcome back.')}</Text>
-        <Text style={s.roleIntroSubtitle}>{authMode === 'register' ? (role === 'Recruiter' ? 'Register once to post roles, review candidate matches, and manage campus hiring.' : role === 'Placement' ? 'Register your placement cell to coordinate drives and track student placement.' : 'Register once, then log in with your email and password.') : (role === 'Recruiter' ? 'Sign in with your corporate email to access your company dashboard.' : 'Log in with your email and password to open your workspace.')}</Text>
+        <Text style={s.roleIntroTitle}>
+          {authMode === 'forgot'
+            ? 'Reset your password.'
+            : authMode === 'register'
+              ? (role === 'Recruiter' ? 'Register your company.' : role === 'Placement' ? 'Placement registration.' : 'Create student account.')
+              : (role === 'Recruiter' ? 'Company sign in.' : 'Welcome back.')}
+        </Text>
+        <Text style={s.roleIntroSubtitle}>
+          {authMode === 'forgot'
+            ? 'Enter your registered email and choose a new password to restore account access.'
+            : authMode === 'register'
+              ? (role === 'Recruiter' ? 'Register once to post roles, review candidate matches, and manage campus hiring.' : role === 'Placement' ? 'Register your placement cell to coordinate drives and track student placement.' : 'Register once, then log in with your email and password.')
+              : (role === 'Recruiter' ? 'Sign in with your corporate email to access your company dashboard.' : 'Log in with your email and password to open your workspace.')}
+        </Text>
         <View style={s.authModeRow}>
-          {['register', 'login'].map((mode) => <TouchableOpacity key={mode} style={[s.authModeTab, authMode === mode && s.authModeSelected]} onPress={async () => { setAuthMode(mode); setAuthError(''); if (mode === 'login' && !authForm.email) { const saved = await safeStorageGet(SAVED_EMAIL_KEY); if (saved) setAuthForm((curr) => ({ ...curr, email: saved })); } }}><Text style={[s.authModeText, authMode === mode && s.authModeTextSelected]}>{mode === 'register' ? (role === 'Recruiter' ? 'Register Company' : 'Register') : 'Log in'}</Text></TouchableOpacity>)}
+          {[
+            ['register', role === 'Recruiter' ? 'Register Company' : 'Register'],
+            ['login', 'Log in'],
+            ['forgot', 'Forgot Password'],
+          ].map(([mode, label]) => (
+            <TouchableOpacity
+              key={mode}
+              style={[s.authModeTab, authMode === mode && s.authModeSelected]}
+              onPress={async () => {
+                setAuthMode(mode);
+                setAuthError('');
+                setAuthSuccess('');
+                if ((mode === 'login' || mode === 'forgot') && !authForm.email) {
+                  const saved = await safeStorageGet(SAVED_EMAIL_KEY);
+                  if (saved) setAuthForm((curr) => ({ ...curr, email: saved }));
+                }
+              }}
+            >
+              <Text style={[s.authModeText, authMode === mode && s.authModeTextSelected]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
         {authMode === 'register' && role === 'Recruiter' && <>
           <Text style={s.authLabel}>Company / organization name</Text>
@@ -900,19 +1034,109 @@ function AppContent() {
           {showCollegeList && <ScrollView style={s.collegeSuggestions} nestedScrollEnabled keyboardShouldPersistTaps="handled">{BHUBANESWAR_COLLEGES.filter((college) => !collegeQuery || college.toLowerCase().includes(collegeQuery.toLowerCase())).map((college) => <TouchableOpacity key={college} style={s.collegeSuggestion} onPress={() => { setAuthValue('college', college === 'Other / college not listed' ? '' : college); setCollegeQuery(''); setShowCollegeList(false); }}><Text style={s.authSuggestionText}>{college}</Text></TouchableOpacity>)}</ScrollView>}
           <Text style={s.authLabel}>Student registration number</Text><TextInput style={s.authInput} value={authForm.registrationNo} onChangeText={(value) => setAuthValue('registrationNo', value)} placeholder="College registration number" placeholderTextColor="#AAB6D0" autoCapitalize="characters" />
         </>}
-        <Text style={s.authLabel}>{role === 'Recruiter' ? 'Work / corporate email address' : 'Email address'}</Text><TextInput style={s.authInput} value={authForm.email} onChangeText={(value) => setAuthValue('email', value)} placeholder={role === 'Recruiter' ? 'recruiter@company.com' : 'you@example.com'} placeholderTextColor="#AAB6D0" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
-        <Text style={s.authLabel}>Password</Text><View style={s.authPasswordRow}><TextInput style={[s.authInput, s.authPasswordInput]} value={authForm.password} onChangeText={(value) => setAuthValue('password', value)} placeholder={authMode === 'register' ? 'Create password (min 8 characters)' : 'Enter your password'} placeholderTextColor="#AAB6D0" secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false} autoComplete={authMode === 'register' ? 'new-password' : 'password'} /><TouchableOpacity style={s.passwordVisibilityButton} onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}><View style={s.eyeIcon}><View style={s.eyePupil} />{!passwordVisible && <View style={s.eyeSlash} />}</View></TouchableOpacity></View>
-        {authMode === 'register' && <Text style={s.authHint}>Choose a secure password with at least 8 characters. Passwords are encrypted on the server.</Text>}
-        <TouchableOpacity style={s.autoLoginRow} onPress={() => setAutoLogin((current) => !current)} activeOpacity={0.8} accessibilityRole="checkbox" accessibilityState={{ checked: autoLogin }} accessibilityLabel="Keep me signed in with auto login">
-          <View style={[s.checkbox, autoLogin && s.checkboxChecked]}>{autoLogin && <Text style={s.checkboxCheck}>✓</Text>}</View>
-          <View style={s.autoLoginTextWrap}>
-            <Text style={s.autoLoginLabel}>Auto login</Text>
-            <Text style={s.autoLoginSub}>Keep me signed in on this device</Text>
-          </View>
-        </TouchableOpacity>
-        {!!authError && <Text style={s.authError} accessibilityRole="alert">{authError}</Text>}
-        <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitAuth} disabled={authBusy}><Text style={s.introButtonText}>{authBusy ? 'Please wait…' : authMode === 'register' ? (role === 'Recruiter' ? 'Register company & enter' : 'Create account') : 'Log in'}</Text><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>
-        <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => enterApp(role)}><Text style={{ color: '#75E6DE', fontSize: 11, fontWeight: '700' }}>Or explore sample workspace as guest ›</Text></TouchableOpacity>
+        {authMode === 'forgot' ? (
+          <>
+            <Text style={s.authLabel}>{role === 'Recruiter' ? 'Registered corporate email address' : 'Registered email address'}</Text>
+            <TextInput
+              style={s.authInput}
+              value={authForm.email}
+              onChangeText={(value) => setAuthValue('email', value)}
+              placeholder={role === 'Recruiter' ? 'recruiter@company.com' : 'you@example.com'}
+              placeholderTextColor="#AAB6D0"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+            />
+            <Text style={s.authLabel}>New password</Text>
+            <View style={s.authPasswordRow}>
+              <TextInput
+                style={[s.authInput, s.authPasswordInput]}
+                value={authForm.newPassword}
+                onChangeText={(value) => setAuthValue('newPassword', value)}
+                placeholder="Enter new password (min 8 characters)"
+                placeholderTextColor="#AAB6D0"
+                secureTextEntry={!passwordVisible}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+              />
+              <TouchableOpacity
+                style={s.passwordVisibilityButton}
+                onPress={() => setPasswordVisible((visible) => !visible)}
+                accessibilityRole="button"
+                accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+              >
+                <View style={s.eyeIcon}>
+                  <View style={s.eyePupil} />
+                  {!passwordVisible && <View style={s.eyeSlash} />}
+                </View>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.authLabel}>Confirm new password</Text>
+            <View style={s.authPasswordRow}>
+              <TextInput
+                style={[s.authInput, s.authPasswordInput]}
+                value={authForm.confirmPassword}
+                onChangeText={(value) => setAuthValue('confirmPassword', value)}
+                placeholder="Re-enter new password"
+                placeholderTextColor="#AAB6D0"
+                secureTextEntry={!confirmPasswordVisible}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+              />
+              <TouchableOpacity
+                style={s.passwordVisibilityButton}
+                onPress={() => setConfirmPasswordVisible((visible) => !visible)}
+                accessibilityRole="button"
+                accessibilityLabel={confirmPasswordVisible ? 'Hide password' : 'Show password'}
+              >
+                <View style={s.eyeIcon}>
+                  <View style={s.eyePupil} />
+                  {!confirmPasswordVisible && <View style={s.eyeSlash} />}
+                </View>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.authHint}>Choose a secure password with at least 8 characters. Make sure both passwords match.</Text>
+            {!!authSuccess && <Text style={s.authSuccess}>{authSuccess}</Text>}
+            {!!authError && <Text style={s.authError} accessibilityRole="alert">{authError}</Text>}
+            <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitResetPassword} disabled={authBusy}>
+              <Text style={s.introButtonText}>{authBusy ? 'Please wait…' : 'Reset & Save Password'}</Text>
+              <Text style={s.introButtonArrow}>→</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); }}>
+              <Text style={{ color: '#75E6DE', fontSize: 11, fontWeight: '700' }}>‹ Back to Log in</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={s.authLabel}>{role === 'Recruiter' ? 'Work / corporate email address' : 'Email address'}</Text>
+            <TextInput style={s.authInput} value={authForm.email} onChangeText={(value) => setAuthValue('email', value)} placeholder={role === 'Recruiter' ? 'recruiter@company.com' : 'you@example.com'} placeholderTextColor="#AAB6D0" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
+            <Text style={s.authLabel}>Password</Text>
+            <View style={s.authPasswordRow}>
+              <TextInput style={[s.authInput, s.authPasswordInput]} value={authForm.password} onChangeText={(value) => setAuthValue('password', value)} placeholder={authMode === 'register' ? 'Create password (min 8 characters)' : 'Enter your password'} placeholderTextColor="#AAB6D0" secureTextEntry={!passwordVisible} autoCapitalize="none" autoCorrect={false} autoComplete={authMode === 'register' ? 'new-password' : 'password'} />
+              <TouchableOpacity style={s.passwordVisibilityButton} onPress={() => setPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}><View style={s.eyeIcon}><View style={s.eyePupil} />{!passwordVisible && <View style={s.eyeSlash} />}</View></TouchableOpacity>
+            </View>
+            {authMode === 'login' && (
+              <TouchableOpacity style={s.forgotPasswordRow} onPress={() => { setAuthMode('forgot'); setAuthError(''); setAuthSuccess(''); }}>
+                <Text style={s.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
+            )}
+            {authMode === 'register' && <Text style={s.authHint}>Choose a secure password with at least 8 characters. Passwords are encrypted on the server.</Text>}
+            <TouchableOpacity style={s.autoLoginRow} onPress={() => setAutoLogin((current) => !current)} activeOpacity={0.8} accessibilityRole="checkbox" accessibilityState={{ checked: autoLogin }} accessibilityLabel="Keep me signed in with auto login">
+              <View style={[s.checkbox, autoLogin && s.checkboxChecked]}>{autoLogin && <Text style={s.checkboxCheck}>✓</Text>}</View>
+              <View style={s.autoLoginTextWrap}>
+                <Text style={s.autoLoginLabel}>Auto login</Text>
+                <Text style={s.autoLoginSub}>Keep me signed in on this device</Text>
+              </View>
+            </TouchableOpacity>
+            {!!authSuccess && <Text style={s.authSuccess}>{authSuccess}</Text>}
+            {!!authError && <Text style={s.authError} accessibilityRole="alert">{authError}</Text>}
+            <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitAuth} disabled={authBusy}><Text style={s.introButtonText}>{authBusy ? 'Please wait…' : authMode === 'register' ? (role === 'Recruiter' ? 'Register company & enter' : 'Create account') : 'Log in'}</Text><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>
+            <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => enterApp(role)}><Text style={{ color: '#75E6DE', fontSize: 11, fontWeight: '700' }}>Or explore sample workspace as guest ›</Text></TouchableOpacity>
+          </>
+        )}
         <Text style={s.introFooter}>Your password is securely hashed on the auth server; it is never saved as readable text.</Text>
       </Animated.View>
     );
@@ -972,6 +1196,9 @@ const introStyles = StyleSheet.create({
   autoLoginTextWrap: { flex: 1 },
   autoLoginLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   autoLoginSub: { color: '#AAB6D0', fontSize: 9, marginTop: 1 },
+  forgotPasswordRow: { alignSelf: 'flex-end', marginTop: 6, marginBottom: 8, paddingVertical: 4 },
+  forgotPasswordText: { color: '#75E6DE', fontSize: 10, fontWeight: '700' },
+  authSuccess: { color: '#75E6DE', backgroundColor: 'rgba(117,230,222,0.12)', borderWidth: 1, borderColor: '#75E6DE', borderRadius: 10, padding: 10, fontSize: 10, lineHeight: 14, marginTop: 9, marginBottom: 4 },
 });
 const lightStyles = { ...makeStyles(C), ...introStyles };
 const darkStyles = { ...makeStyles(DARK), ...introStyles };
