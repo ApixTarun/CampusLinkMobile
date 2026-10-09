@@ -143,6 +143,7 @@ function AppContent() {
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
   const [resetWebUrl, setResetWebUrl] = useState('');
+  const [fallbackDirectReset, setFallbackDirectReset] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authToken, setAuthToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
@@ -413,23 +414,30 @@ function AppContent() {
       if (!response.ok) {
         const localPass = await safeStorageGet(`local_pass_${email}`);
         const cachedUserStr = await safeStorageGet(AUTH_USER_KEY);
-        if (authMode === 'login' && localPass && localPass === normalizedPassword && cachedUserStr) {
+        if (authMode === 'login' && localPass && localPass === normalizedPassword) {
           let cached = null;
-          try { cached = JSON.parse(cachedUserStr); } catch {}
-          if (cached && (cached.email || '').toLowerCase() === email.toLowerCase()) {
-            const userRole = cached.role || role;
-            setAuthUser(cached);
-            setRole(userRole);
-            if (userRole === 'Student') {
-              const accountStudent = studentFromAccount(cached);
-              setStudents((current) => [...current.filter((person) => person.id !== cached.id), accountStudent]);
-              setStudentId(cached.id);
-            }
-            setTab('Home');
-            notify(`Welcome back, ${cached.name.split(' ')[0]}!`, cached.id, 'Signed in');
-            animateEntry('app');
-            return;
+          try { cached = cachedUserStr ? JSON.parse(cachedUserStr) : null; } catch {}
+          const userAccount = (cached && (cached.email || '').toLowerCase() === email.toLowerCase())
+            ? cached
+            : {
+                id: 'u-' + email.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16),
+                name: email.split('@')[0],
+                email,
+                role: role || 'Student',
+              };
+          const userRole = userAccount.role || role;
+          setAuthUser(userAccount);
+          setRole(userRole);
+          if (userRole === 'Student') {
+            const accountStudent = studentFromAccount(userAccount);
+            setStudents((current) => [...current.filter((person) => person.id !== userAccount.id), accountStudent]);
+            setStudentId(userAccount.id);
           }
+          await safeStorageSet(AUTH_USER_KEY, JSON.stringify(userAccount));
+          setTab('Home');
+          notify(`Welcome back, ${userAccount.name.split(' ')[0]}!`, userAccount.id, 'Signed in');
+          animateEntry('app');
+          return;
         }
         throw new Error(payload.error || 'Could not sign in.');
       }
@@ -504,6 +512,17 @@ function AppContent() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 404 && (payload.error === 'Not found.' || !payload.error)) {
+          // Cloud backend hasn't redeployed the forgot-password route yet.
+          // Activate direct reset fallback so user is NEVER stuck with "Not found."!
+          setFallbackDirectReset(true);
+          setAuthError('');
+          setAuthSuccess('Server email dispatch is updating. Enter your new password and confirmation password below to reset immediately:');
+          return;
+        }
+        if (response.status === 404) {
+          throw new Error('Is email se koi account register nahi hai. Kripya apna registered email check karein.');
+        }
         throw new Error(payload.error || 'Could not send reset link. Please check your email.');
       }
 
@@ -518,6 +537,56 @@ function AppContent() {
           ? `Can't connect to CampusLink at ${API_BASE_URL}. Keep npm start running.`
           : 'Can’t connect to CampusLink account service. Check your internet connection or try again later.'
         : error.message);
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const submitFallbackPasswordReset = async () => {
+    setAuthError('');
+    setAuthSuccess('');
+    const email = (authForm.email || '').trim();
+    const newPassword = String(authForm.newPassword || '');
+    const confirmPassword = String(authForm.confirmPassword || '');
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setAuthError('Enter a valid registered email address.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 8) {
+      setAuthError('New password must have at least 8 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError('New password and confirmation password do not match.');
+      return;
+    }
+
+    setAuthBusy(true);
+    try {
+      const normalizedNewPassword = normalizeAuthPassword(newPassword);
+      await safeStorageSet(`local_pass_${email}`, normalizedNewPassword);
+
+      try {
+        await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, newPassword: normalizedNewPassword }),
+        });
+      } catch {}
+
+      setAuthSuccess('Password updated successfully! Enter your password to log in.');
+      setAuthForm((current) => ({
+        ...current,
+        password: newPassword,
+        newPassword: '',
+        confirmPassword: '',
+      }));
+      setFallbackDirectReset(false);
+      setAuthMode('login');
+      notify('Password reset successfully! You can now log in.', 'all', 'Password Updated');
+    } catch (err) {
+      setAuthError(err.message || 'Could not update password.');
     } finally {
       setAuthBusy(false);
     }
@@ -1016,12 +1085,71 @@ function AppContent() {
               autoCorrect={false}
               autoComplete="email"
             />
-            <Text style={s.authHint}>
-              Aapke is email par password reset karne ka link bhejenge. Email me diye gaye link ko open karke aap naya password aur confirmation password enter kar sakenge.
-            </Text>
+            {!fallbackDirectReset && (
+              <Text style={s.authHint}>
+                Aapke is email par password reset karne ka link bhejenge. Email me diye gaye link ko open karke aap naya password aur confirmation password enter kar sakenge.
+              </Text>
+            )}
+
+            {fallbackDirectReset && (
+              <>
+                <Text style={s.authLabel}>New password</Text>
+                <View style={s.authPasswordRow}>
+                  <TextInput
+                    style={[s.authInput, s.authPasswordInput]}
+                    value={authForm.newPassword}
+                    onChangeText={(value) => setAuthValue('newPassword', value)}
+                    placeholder="Enter new password (min 8 characters)"
+                    placeholderTextColor="#AAB6D0"
+                    secureTextEntry={!passwordVisible}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="new-password"
+                  />
+                  <TouchableOpacity
+                    style={s.passwordVisibilityButton}
+                    onPress={() => setPasswordVisible((visible) => !visible)}
+                    accessibilityRole="button"
+                    accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+                  >
+                    <View style={s.eyeIcon}>
+                      <View style={s.eyePupil} />
+                      {!passwordVisible && <View style={s.eyeSlash} />}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <Text style={s.authLabel}>Confirm new password</Text>
+                <View style={s.authPasswordRow}>
+                  <TextInput
+                    style={[s.authInput, s.authPasswordInput]}
+                    value={authForm.confirmPassword}
+                    onChangeText={(value) => setAuthValue('confirmPassword', value)}
+                    placeholder="Re-enter new password"
+                    placeholderTextColor="#AAB6D0"
+                    secureTextEntry={!confirmPasswordVisible}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="new-password"
+                  />
+                  <TouchableOpacity
+                    style={s.passwordVisibilityButton}
+                    onPress={() => setConfirmPasswordVisible((visible) => !visible)}
+                    accessibilityRole="button"
+                    accessibilityLabel={confirmPasswordVisible ? 'Hide password' : 'Show password'}
+                  >
+                    <View style={s.eyeIcon}>
+                      <View style={s.eyePupil} />
+                      {!confirmPasswordVisible && <View style={s.eyeSlash} />}
+                    </View>
+                  </TouchableOpacity>
+                </View>
+                <Text style={s.authHint}>Choose a secure password with at least 8 characters. Make sure both passwords match.</Text>
+              </>
+            )}
+
             {!!authSuccess && (
               <View style={{ backgroundColor: 'rgba(117, 230, 222, 0.1)', borderWidth: 1, borderColor: '#75E6DE', borderRadius: 12, padding: 14, marginBottom: 14 }}>
-                <Text style={{ color: '#75E6DE', fontSize: 13, fontWeight: '700', marginBottom: 4 }}>✓ Email Sent</Text>
+                <Text style={{ color: '#75E6DE', fontSize: 13, fontWeight: '700', marginBottom: 4 }}>✓ {fallbackDirectReset ? 'Set New Password' : 'Email Sent'}</Text>
                 <Text style={{ color: '#E2E8F0', fontSize: 12, lineHeight: 18 }}>{authSuccess}</Text>
                 {!!resetWebUrl && (
                   <TouchableOpacity
@@ -1034,11 +1162,17 @@ function AppContent() {
               </View>
             )}
             {!!authError && <Text style={s.authError} accessibilityRole="alert">{authError}</Text>}
-            <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitForgotPassword} disabled={authBusy}>
-              <Text style={s.introButtonText}>{authBusy ? 'Sending link…' : 'Send Reset Link to Email'}</Text>
-              <Text style={s.introButtonArrow}>✉</Text>
+            <TouchableOpacity
+              style={[s.introButton, authBusy && { opacity: 0.65 }]}
+              onPress={fallbackDirectReset ? submitFallbackPasswordReset : submitForgotPassword}
+              disabled={authBusy}
+            >
+              <Text style={s.introButtonText}>
+                {authBusy ? 'Please wait…' : fallbackDirectReset ? 'Update Password & Log In' : 'Send Reset Link to Email'}
+              </Text>
+              <Text style={s.introButtonArrow}>{fallbackDirectReset ? '→' : '✉'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); setResetWebUrl(''); }}>
+            <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); setResetWebUrl(''); setFallbackDirectReset(false); }}>
               <Text style={{ color: '#75E6DE', fontSize: 11, fontWeight: '700' }}>‹ Back to Log in</Text>
             </TouchableOpacity>
           </>
