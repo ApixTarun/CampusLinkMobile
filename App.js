@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Easing,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   NativeModules,
   Platform,
@@ -141,6 +142,7 @@ function AppContent() {
   const [authForm, setAuthForm] = useState({ name: '', college: '', registrationNo: '', email: '', password: '', company: '', designation: '', newPassword: '', confirmPassword: '' });
   const [authError, setAuthError] = useState('');
   const [authSuccess, setAuthSuccess] = useState('');
+  const [resetWebUrl, setResetWebUrl] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [authToken, setAuthToken] = useState('');
   const [authUser, setAuthUser] = useState(null);
@@ -478,73 +480,38 @@ function AppContent() {
     }
   };
 
-  const submitResetPassword = async () => {
+  const submitForgotPassword = async () => {
     setAuthError('');
     setAuthSuccess('');
+    setResetWebUrl('');
     if (!API_BASE_URL) {
       setAuthError('CampusLink account service is not configured in this app.');
       return;
     }
     const email = (authForm.email || '').trim();
-    const newPassword = String(authForm.newPassword || '');
-    const confirmPassword = String(authForm.confirmPassword || '');
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setAuthError('Enter a valid registered email address.');
       return;
     }
-    if (!newPassword) {
-      setAuthError('Enter your new password.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      setAuthError('New password must have at least 8 characters.');
-      return;
-    }
-    if (!confirmPassword) {
-      setAuthError('Confirm your new password.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setAuthError('New password and confirmation password do not match.');
-      return;
-    }
 
     setAuthBusy(true);
     try {
-      const normalizedNewPassword = normalizeAuthPassword(newPassword);
-      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, newPassword: normalizedNewPassword }),
+        body: JSON.stringify({ email }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 404 && payload.error === 'Not found.') {
-          await safeStorageSet(`local_pass_${email}`, normalizedNewPassword);
-          setAuthSuccess('Password updated on device! Enter your new password to log in.');
-          setAuthForm((current) => ({
-            ...current,
-            password: newPassword,
-            newPassword: '',
-            confirmPassword: '',
-          }));
-          setAuthMode('login');
-          notify('Password updated on device. You can now log in.', 'all', 'Password Updated');
-          return;
-        }
-        throw new Error(payload.error || 'Could not reset password. Please check your email.');
+        throw new Error(payload.error || 'Could not send reset link. Please check your email.');
       }
 
-      setAuthSuccess('Password reset successfully! Enter your password to log in.');
-      setAuthForm((current) => ({
-        ...current,
-        password: newPassword,
-        newPassword: '',
-        confirmPassword: '',
-      }));
-      setAuthMode('login');
-      notify('Password reset successfully! You can now log in.', 'all', 'Password Updated');
+      setAuthSuccess('Password reset link aapke email par bhej diya gaya hai! Kripya apna inbox check karein aur link open karke naya password set karein.');
+      if (payload.resetUrl) {
+        setResetWebUrl(payload.resetUrl);
+      }
+      notify('Password reset link sent to your email.', 'all', 'Email Sent');
     } catch (error) {
       setAuthError(error.message === 'Network request failed'
         ? __DEV__
@@ -977,14 +944,14 @@ function AppContent() {
         <Text style={s.introEyebrow}>{role === 'Recruiter' ? 'PLACEMENT COMPANY & RECRUITER' : role === 'Placement' ? 'PLACEMENT OFFICE · CAMPUSLINK' : 'STUDENT SPACE · CAMPUSLINK'}</Text>
         <Text style={s.roleIntroTitle}>
           {authMode === 'forgot'
-            ? 'Reset your password.'
+            ? 'Forgot password?'
             : authMode === 'register'
               ? (role === 'Recruiter' ? 'Register your company.' : role === 'Placement' ? 'Placement registration.' : 'Create student account.')
               : (role === 'Recruiter' ? 'Company sign in.' : 'Welcome back.')}
         </Text>
         <Text style={s.roleIntroSubtitle}>
           {authMode === 'forgot'
-            ? 'Enter your registered email and choose a new password to restore account access.'
+            ? 'Enter your registered email address to receive a secure password reset link.'
             : authMode === 'register'
               ? (role === 'Recruiter' ? 'Register once to post roles, review candidate matches, and manage campus hiring.' : role === 'Placement' ? 'Register your placement cell to coordinate drives and track student placement.' : 'Register once, then log in with your email and password.')
               : (role === 'Recruiter' ? 'Sign in with your corporate email to access your company dashboard.' : 'Log in with your email and password to open your workspace.')}
@@ -1002,6 +969,7 @@ function AppContent() {
                 setAuthMode(mode);
                 setAuthError('');
                 setAuthSuccess('');
+                setResetWebUrl('');
                 if ((mode === 'login' || mode === 'forgot') && !authForm.email) {
                   const saved = await safeStorageGet(SAVED_EMAIL_KEY);
                   if (saved) setAuthForm((curr) => ({ ...curr, email: saved }));
@@ -1048,64 +1016,29 @@ function AppContent() {
               autoCorrect={false}
               autoComplete="email"
             />
-            <Text style={s.authLabel}>New password</Text>
-            <View style={s.authPasswordRow}>
-              <TextInput
-                style={[s.authInput, s.authPasswordInput]}
-                value={authForm.newPassword}
-                onChangeText={(value) => setAuthValue('newPassword', value)}
-                placeholder="Enter new password (min 8 characters)"
-                placeholderTextColor="#AAB6D0"
-                secureTextEntry={!passwordVisible}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="new-password"
-              />
-              <TouchableOpacity
-                style={s.passwordVisibilityButton}
-                onPress={() => setPasswordVisible((visible) => !visible)}
-                accessibilityRole="button"
-                accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
-              >
-                <View style={s.eyeIcon}>
-                  <View style={s.eyePupil} />
-                  {!passwordVisible && <View style={s.eyeSlash} />}
-                </View>
-              </TouchableOpacity>
-            </View>
-            <Text style={s.authLabel}>Confirm new password</Text>
-            <View style={s.authPasswordRow}>
-              <TextInput
-                style={[s.authInput, s.authPasswordInput]}
-                value={authForm.confirmPassword}
-                onChangeText={(value) => setAuthValue('confirmPassword', value)}
-                placeholder="Re-enter new password"
-                placeholderTextColor="#AAB6D0"
-                secureTextEntry={!confirmPasswordVisible}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="new-password"
-              />
-              <TouchableOpacity
-                style={s.passwordVisibilityButton}
-                onPress={() => setConfirmPasswordVisible((visible) => !visible)}
-                accessibilityRole="button"
-                accessibilityLabel={confirmPasswordVisible ? 'Hide password' : 'Show password'}
-              >
-                <View style={s.eyeIcon}>
-                  <View style={s.eyePupil} />
-                  {!confirmPasswordVisible && <View style={s.eyeSlash} />}
-                </View>
-              </TouchableOpacity>
-            </View>
-            <Text style={s.authHint}>Choose a secure password with at least 8 characters. Make sure both passwords match.</Text>
-            {!!authSuccess && <Text style={s.authSuccess}>{authSuccess}</Text>}
+            <Text style={s.authHint}>
+              Aapke is email par password reset karne ka link bhejenge. Email me diye gaye link ko open karke aap naya password aur confirmation password enter kar sakenge.
+            </Text>
+            {!!authSuccess && (
+              <View style={{ backgroundColor: 'rgba(117, 230, 222, 0.1)', borderWidth: 1, borderColor: '#75E6DE', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+                <Text style={{ color: '#75E6DE', fontSize: 13, fontWeight: '700', marginBottom: 4 }}>✓ Email Sent</Text>
+                <Text style={{ color: '#E2E8F0', fontSize: 12, lineHeight: 18 }}>{authSuccess}</Text>
+                {!!resetWebUrl && (
+                  <TouchableOpacity
+                    style={{ marginTop: 10, backgroundColor: '#3269E8', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start' }}
+                    onPress={() => Linking.openURL(resetWebUrl)}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Open Reset Link in Browser ↗</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
             {!!authError && <Text style={s.authError} accessibilityRole="alert">{authError}</Text>}
-            <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitResetPassword} disabled={authBusy}>
-              <Text style={s.introButtonText}>{authBusy ? 'Please wait…' : 'Reset & Save Password'}</Text>
-              <Text style={s.introButtonArrow}>→</Text>
+            <TouchableOpacity style={[s.introButton, authBusy && { opacity: 0.65 }]} onPress={submitForgotPassword} disabled={authBusy}>
+              <Text style={s.introButtonText}>{authBusy ? 'Sending link…' : 'Send Reset Link to Email'}</Text>
+              <Text style={s.introButtonArrow}>✉</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); }}>
+            <TouchableOpacity style={{ alignSelf: 'center', marginTop: 14, paddingVertical: 6 }} onPress={() => { setAuthMode('login'); setAuthError(''); setAuthSuccess(''); setResetWebUrl(''); }}>
               <Text style={{ color: '#75E6DE', fontSize: 11, fontWeight: '700' }}>‹ Back to Log in</Text>
             </TouchableOpacity>
           </>
