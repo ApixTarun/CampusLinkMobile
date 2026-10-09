@@ -41,13 +41,32 @@ const AUTO_LOGIN_KEY = 'campuslink.autoLogin';
 const SAVED_EMAIL_KEY = 'campuslink.savedEmail';
 
 async function safeStorageGet(key) {
-  try { return await SecureStore.getItemAsync(key); } catch { return null; }
+  try {
+    if (Platform.OS === 'web') {
+      return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+    }
+    return await SecureStore.getItemAsync(key);
+  } catch { return null; }
 }
 async function safeStorageSet(key, value) {
-  try { await SecureStore.setItemAsync(key, value); return true; } catch { return false; }
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+      return true;
+    }
+    await SecureStore.setItemAsync(key, value);
+    return true;
+  } catch { return false; }
 }
 async function safeStorageDelete(key) {
-  try { await SecureStore.deleteItemAsync(key); return true; } catch { return false; }
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+      return true;
+    }
+    await SecureStore.deleteItemAsync(key);
+    return true;
+  } catch { return false; }
 }
 
 const metroHost = NativeModules.SourceCode?.scriptURL?.match(/^https?:\/\/([^/:]+)/)?.[1];

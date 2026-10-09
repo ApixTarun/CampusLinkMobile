@@ -29,6 +29,7 @@ const STORE_DIR = process.env.CAMPUSLINK_DATA_DIR || path.join(__dirname, 'data'
 const STORE_FILE = path.join(STORE_DIR, 'students.json');
 const SESSION_FILE = path.join(STORE_DIR, 'sessions.json');
 const RESET_TOKENS_FILE = path.join(STORE_DIR, 'reset_tokens.json');
+const DIST_DIR = path.join(__dirname, '..', 'dist');
 
 const sessions = new Map();
 const resetTokens = new Map();
@@ -164,6 +165,49 @@ function html(res, status, content) {
     'X-Content-Type-Options': 'nosniff',
   });
   res.end(content);
+}
+
+async function serveStatic(res, pathname) {
+  try {
+    let filePath = path.join(DIST_DIR, pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, ''));
+    let stats;
+    try {
+      stats = await fs.stat(filePath);
+      if (stats.isDirectory()) {
+        filePath = path.join(filePath, 'index.html');
+        stats = await fs.stat(filePath);
+      }
+    } catch {
+      filePath = path.join(DIST_DIR, 'index.html');
+      stats = await fs.stat(filePath);
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.html': 'text/html; charset=utf-8',
+      '.js': 'application/javascript; charset=utf-8',
+      '.css': 'text/css; charset=utf-8',
+      '.json': 'application/json; charset=utf-8',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon',
+      '.webp': 'image/webp',
+      '.woff2': 'font/woff2',
+      '.woff': 'font/woff',
+      '.ttf': 'font/ttf',
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    const content = await fs.readFile(filePath);
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000',
+    });
+    res.end(content);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function bodyJson(req) {
@@ -681,6 +725,11 @@ async function handle(req, res) {
       await persistSessions();
     }
     return json(res, 200, { ok: true });
+  }
+
+  if (req.method === 'GET' && !parsedUrl.pathname.startsWith('/api/')) {
+    const served = await serveStatic(res, parsedUrl.pathname);
+    if (served) return;
   }
 
   return json(res, 404, { error: 'Not found.' });
