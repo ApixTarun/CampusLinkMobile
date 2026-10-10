@@ -19,23 +19,42 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import { BHUBANESWAR_COLLEGES } from './colleges';
 
 const C = {
-  navy: '#12233F', blue: '#3269E8', pale: '#EEF3FF', ink: '#1E293B', muted: '#718096',
-  line: '#E8EDF4', green: '#138A66', bg: '#F5F7FB', white: '#FFFFFF', orange: '#D97706',
-  red: '#C94B54', softRed: '#FFF0F0', softGreen: '#EAF7F1',
+  navy: '#0F172A', blue: '#3B82F6', blueDark: '#1D4ED8', indigo: '#6366F1', purple: '#8B5CF6',
+  cyan: '#06B6D4', pale: '#F1F5F9', paleBlue: '#EFF6FF', ink: '#1E293B', muted: '#64748B',
+  line: '#E2E8F0', green: '#10B981', greenDark: '#059669', bg: '#F8FAFC', white: '#FFFFFF',
+  orange: '#F59E0B', amber: '#D97706', red: '#EF4444', softRed: '#FEF2F2', softGreen: '#ECFDF5',
+  softBlue: '#EFF6FF', softPurple: '#F5F3FF', softAmber: '#FFFBEB', shadowColor: '#0F172A',
 };
 const DARK = {
-  navy: '#E8EEFF', blue: '#83A4FF', pale: '#24314B', ink: '#E3E8F2', muted: '#A3AEC1',
-  line: '#344056', green: '#63D5A8', bg: '#111722', white: '#1B2432', orange: '#FFBD70',
-  red: '#FF8790', softRed: '#3A252C', softGreen: '#20372F',
+  navy: '#F8FAFC', blue: '#60A5FA', blueDark: '#3B82F6', indigo: '#818CF8', purple: '#A78BFA',
+  cyan: '#22D3EE', pale: '#1E293B', paleBlue: '#1E293B', ink: '#F1F5F9', muted: '#94A3B8',
+  line: '#334155', green: '#34D399', greenDark: '#10B981', bg: '#0B0F19', white: '#131B2E',
+  orange: '#FBBF24', amber: '#F59E0B', red: '#F87171', softRed: '#451A24', softGreen: '#064E3B',
+  softBlue: '#1E293B', softPurple: '#2E1065', softAmber: '#451A03', shadowColor: '#000000',
 };
 let s;
 const TABS = [['Home', '⌂'], ['Jobs', '⌕'], ['Pipeline', '⇄'], ['Drives', '▦'], ['Inbox', '✉'], ['Profile', '◉']];
 const SKILL_TERMS = ['machine learning', 'data analysis', 'problem solving', 'communication', 'javascript', 'typescript', 'statistics', 'leadership', 'python', 'react', 'sql', 'excel', 'figma', 'java', 'c++', 'aws', 'git'];
 const CAREER_STAGES = ['Applied', 'Shortlisted', 'Interview', 'Offer', 'Documents', 'Accepted', 'Joined', 'Declined'];
+const TAG_PALETTE = ['#EFF6FF', '#F5F3FF', '#ECFDF5', '#FFFBEB', '#FDF2F8', '#F0FDFA'];
+const TAG_TEXT_PALETTE = ['#1D4ED8', '#6D28D9', '#047857', '#B45309', '#BE185D', '#0F766E'];
+
+function getMetricTheme(label) {
+  const l = (label || '').toLowerCase();
+  if (l.includes('role') || l.includes('job')) return { icon: '💼', colors: ['#3B82F6', '#1D4ED8'] };
+  if (l.includes('app') || l.includes('pipe')) return { icon: '⚡', colors: ['#8B5CF6', '#6D28D9'] };
+  if (l.includes('readiness') || l.includes('aptitude')) return { icon: '🎯', colors: ['#10B981', '#047857'] };
+  if (l.includes('cgpa')) return { icon: '★', colors: ['#F59E0B', '#B45309'] };
+  if (l.includes('drive') || l.includes('event')) return { icon: '▦', colors: ['#EC4899', '#BE185D'] };
+  if (l.includes('student') || l.includes('profile')) return { icon: '👥', colors: ['#06B6D4', '#0E7490'] };
+  if (l.includes('offer') || l.includes('join')) return { icon: '🏆', colors: ['#10B981', '#059669'] };
+  return { icon: '✦', colors: ['#3B82F6', '#6366F1'] };
+}
 const AUTH_TOKEN_KEY = 'campuslink.authToken';
 const AUTH_USER_KEY = 'campuslink.authUser';
 const AUTH_PROFILE_KEY = 'campuslink.authProfile';
@@ -196,6 +215,32 @@ function AppContent() {
   const introOpacity = useRef(new Animated.Value(0)).current;
   const introPulse = useRef(new Animated.Value(1)).current;
   const introFloat = useRef(new Animated.Value(0)).current;
+  const appPulse = useRef(new Animated.Value(1)).current;
+  const appFloatA = useRef(new Animated.Value(0)).current;
+  const appFloatB = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(appPulse, { toValue: 1.06, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(appPulse, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    const float = Animated.loop(
+      Animated.sequence([
+        Animated.timing(appFloatA, { toValue: 1, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(appFloatA, { toValue: 0, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    const floatB = Animated.loop(
+      Animated.sequence([
+        Animated.timing(appFloatB, { toValue: 1, duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(appFloatB, { toValue: 0, duration: 5200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    pulse.start(); float.start(); floatB.start();
+    return () => { pulse.stop(); float.stop(); floatB.stop(); };
+  }, [appPulse, appFloatA, appFloatB]);
 
   useEffect(() => {
     let active = true;
@@ -842,23 +887,74 @@ function AppContent() {
   const jobCard = (job, compact = false) => {
     const fit = evaluate(student, job);
     const alreadyApplied = applications.some((item) => item.studentId === student.id && item.jobId === job.id);
+    const scoreGrad = fit.score >= 80 ? ['#10B981', '#059669'] : fit.score >= 60 ? ['#3B82F6', '#2563EB'] : ['#F59E0B', '#D97706'];
     return <View key={job.id} style={s.card}>
-      <TouchableOpacity onPress={() => openJob(job)}>
-      <View style={s.row}><View style={s.logo}><Text style={s.logoText}>{initials(job.company).slice(0, 1)}</Text></View><View style={s.grow}><Text style={s.overline}>{job.company}</Text><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.location}</Text></View><View style={s.scorePill}><Text style={s.scoreText}>{fit.score}%</Text><Text style={s.scoreCaption}>fit</Text></View></View>
-      {!compact && <><View style={s.tagWrap}>{job.requiredSkills.slice(0, 4).map((skill) => <Text style={s.tag} key={skill}>{skill}</Text>)}</View><Text style={s.microcopy}>Tap to see why it matches and which skills are missing.</Text></>}
+      <TouchableOpacity onPress={() => openJob(job)} activeOpacity={0.85}>
+        <View style={s.row}>
+          <LinearGradient colors={['#3B82F6', '#6366F1']} style={s.logoCube}>
+            <Text style={s.logoCubeText}>{initials(job.company).slice(0, 1)}</Text>
+          </LinearGradient>
+          <View style={s.grow}>
+            <Text style={s.overline}>{job.company.toUpperCase()}</Text>
+            <Text style={s.cardTitle}>{job.title}</Text>
+            <Text style={s.muted}>📍 {job.location}</Text>
+          </View>
+          <LinearGradient colors={scoreGrad} style={s.scoreBadge3D}>
+            <Text style={s.scoreText3D}>{fit.score}%</Text>
+            <Text style={s.scoreCaption3D}>FIT</Text>
+          </LinearGradient>
+        </View>
+        {!compact && <>
+          <View style={s.tagWrap}>
+            {job.requiredSkills.slice(0, 4).map((skill, idx) => (
+              <View key={skill} style={[s.colorfulTag, { backgroundColor: TAG_PALETTE[idx % TAG_PALETTE.length] }]}>
+                <Text style={[s.colorfulTagText, { color: TAG_TEXT_PALETTE[idx % TAG_TEXT_PALETTE.length] }]}>{skill}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={s.microcopy}>Tap to view match breakdown & missing skills ↗</Text>
+        </>}
       </TouchableOpacity>
-      {role === 'Student' && <TouchableOpacity style={[s.button, alreadyApplied && s.buttonSoft]} onPress={() => alreadyApplied ? openJob(job) : applyToJob(job)}><Text style={[s.buttonText, alreadyApplied && s.buttonSoftText]}>{alreadyApplied ? 'View application' : 'Apply to role'}</Text></TouchableOpacity>}
+      {role === 'Student' && (
+        <TouchableOpacity
+          style={[s.button, alreadyApplied && s.buttonSoft, { marginTop: 10 }]}
+          onPress={() => alreadyApplied ? openJob(job) : applyToJob(job)}
+          activeOpacity={0.85}
+        >
+          <Text style={[s.buttonText, alreadyApplied && s.buttonSoftText]}>
+            {alreadyApplied ? '✓ Application Submitted' : 'Apply to Role →'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>;
   };
   const candidateCard = (person, job = selectedJob, mode = role) => {
     const fit = evaluate(person, job);
     const application = applications.find((item) => item.studentId === person.id && item.jobId === job.id);
+    const scoreGrad = fit.score >= 80 ? ['#10B981', '#059669'] : fit.score >= 60 ? ['#3B82F6', '#2563EB'] : ['#F59E0B', '#D97706'];
     return <View key={`${person.id}-${job.id}`} style={s.candidateCard}>
-      <TouchableOpacity style={s.row} onPress={() => { setCandidateDetailId(person.id); setModal('candidate'); }}>
-        <View style={s.avatar}><Text style={s.avatarText}>{initials(person.name)}</Text></View><View style={s.grow}><Text style={s.cardTitle}>{person.name}</Text><Text style={s.muted}>{person.degree} · {person.major} · CGPA {person.cgpa}</Text><Text style={s.muted}>Readiness {person.readiness}/100</Text></View><View style={s.scorePill}><Text style={s.scoreText}>{fit.score}%</Text><Text style={s.scoreCaption}>fit</Text></View>
+      <TouchableOpacity style={s.row} onPress={() => { setCandidateDetailId(person.id); setModal('candidate'); }} activeOpacity={0.85}>
+        <LinearGradient colors={['#8B5CF6', '#6366F1']} style={s.avatar3D}>
+          <Text style={s.avatarText3D}>{initials(person.name)}</Text>
+        </LinearGradient>
+        <View style={s.grow}>
+          <Text style={s.cardTitle}>{person.name}</Text>
+          <Text style={s.muted}>{person.degree} · {person.major} · CGPA {person.cgpa}</Text>
+          <View style={s.readinessChip}><Text style={s.readinessChipText}>⚡ Readiness {person.readiness}/100</Text></View>
+        </View>
+        <LinearGradient colors={scoreGrad} style={s.scoreBadge3D}>
+          <Text style={s.scoreText3D}>{fit.score}%</Text>
+          <Text style={s.scoreCaption3D}>FIT</Text>
+        </LinearGradient>
       </TouchableOpacity>
-      <View style={s.tagWrap}>{fit.matched.slice(0, 3).map((skill) => <Text style={s.skillTag} key={skill}>✓ {skill}</Text>)}{fit.missing.slice(0, 2).map((skill) => <Text style={[s.skillTag, s.skillMissing]} key={skill}>＋ {skill}</Text>)}</View>
-      <View style={s.rowBetween}><Text style={s.microcopy}>{application ? `Pipeline · ${application.stage}` : 'Profile preview · contact details hidden'}</Text>{mode === 'Recruiter' && <TouchableOpacity style={s.smallButton} onPress={() => addToPipeline(person, job)}><Text style={s.smallButtonText}>{application ? 'Update pipeline' : 'Shortlist'}</Text></TouchableOpacity>}</View>
+      <View style={s.tagWrap}>
+        {fit.matched.slice(0, 3).map((skill) => <View style={[s.skillTag3D, s.skillMatched3D]} key={skill}><Text style={s.skillMatchedText}>✓ {skill}</Text></View>)}
+        {fit.missing.slice(0, 2).map((skill) => <View style={[s.skillTag3D, s.skillMissing3D]} key={skill}><Text style={s.skillMissingText}>＋ {skill}</Text></View>)}
+      </View>
+      <View style={s.rowBetween}>
+        <Text style={s.microcopy}>{application ? `Pipeline · ${application.stage}` : 'Profile preview · confidential'}</Text>
+        {mode === 'Recruiter' && <TouchableOpacity style={s.smallButton} onPress={() => addToPipeline(person, job)} activeOpacity={0.85}><Text style={s.smallButtonText}>{application ? 'Update pipeline' : '✦ Shortlist'}</Text></TouchableOpacity>}
+      </View>
     </View>;
   };
 
@@ -911,8 +1007,21 @@ function AppContent() {
   const drivesScreen = () => {
     const conflicts = drives.flatMap((event, index) => drives.slice(index + 1).filter((other) => overlap(event, other)).map((other) => [event, other]));
     return <><Hero eyebrow="CAMPUS CALENDAR" title="Drives without clashes." subtitle="Schedule exams, interviews, and hiring drives in one calendar." action="＋ Add event" onAction={openDriveForm} />
-      {conflicts.length > 0 && <View style={s.conflictBanner}><Text style={s.conflictIcon}>!</Text><View style={s.grow}><Text style={s.cardTitle}>Overlapping events detected</Text>{conflicts.map(([a, b]) => <Text style={s.muted} key={`${a.id}-${b.id}`}>{a.date}: {a.title} overlaps {b.title}</Text>)}</View></View>}
-      {drives.slice().sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).map((event) => <View style={s.eventCard} key={event.id}><View style={s.dateBox}><Text style={s.dateDay}>{event.date.slice(8, 10)}</Text><Text style={s.dateMon}>{event.date.slice(5, 7)}</Text></View><View style={s.grow}><Text style={s.overline}>{event.kind.toUpperCase()} · {event.company}</Text><Text style={s.cardTitle}>{event.title}</Text><Text style={s.muted}>{event.date} · {event.time} · {event.duration} min</Text><Text style={s.microcopy}>For {event.audience}</Text></View></View>)}
+      {conflicts.length > 0 && <View style={s.conflictBanner}><Text style={s.conflictIcon}>!</Text><View style={s.grow}><Text style={s.conflictTitle}>Overlapping events detected</Text>{conflicts.map(([a, b]) => <Text style={s.conflictBody} key={`${a.id}-${b.id}`}>{a.date}: {a.title} overlaps {b.title}</Text>)}</View></View>}
+      {drives.slice().sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).map((event) => <View style={s.eventCard} key={event.id}>
+        <View style={s.dateBox3D}>
+          <LinearGradient colors={['#EF4444', '#DC2626']} style={s.dateHeader}>
+            <Text style={s.dateMonText}>{event.date.slice(5, 7) === '10' ? 'OCT' : event.date.slice(5, 7) === '11' ? 'NOV' : event.date.slice(5, 7) === '12' ? 'DEC' : 'DATE'}</Text>
+          </LinearGradient>
+          <View style={s.dateBody}><Text style={s.dateDayText}>{event.date.slice(8, 10)}</Text></View>
+        </View>
+        <View style={s.grow}>
+          <View style={s.eventKindPill}><Text style={s.eventKindText}>{event.kind.toUpperCase()}</Text></View>
+          <Text style={s.cardTitle}>{event.title}</Text>
+          <Text style={s.muted}>🏢 {event.company} · 🕒 {event.time} ({event.duration} min)</Text>
+          <Text style={s.microcopy}>Audience: {event.audience}</Text>
+        </View>
+      </View>)}
       <InfoBox title="Clash protection" body="New events are checked against existing event times. The prototype prevents saving an overlapping event until you choose a different slot." />
     </>;
   };
@@ -1368,7 +1477,41 @@ function AppContent() {
     );
     return <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: Math.max(insets.bottom, 12) }]}><StatusBar barStyle="light-content" backgroundColor="#0B1024" translucent={Platform.OS === 'android'} /><View style={s.introBackdrop}><View style={s.backdropOrbA} /><View style={s.backdropOrbB} /><View style={s.backdropGrid} /></View><ScrollView contentContainerStyle={s.introScrollContent} showsVerticalScrollIndicator={false}>{entryContent}</ScrollView></View>;
   }
-  return <View style={[s.safe, { paddingTop: topInset, paddingBottom: insets.bottom }]}><StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={palette.bg} translucent={Platform.OS === 'android'} />
+  return <View style={[s.safe, { paddingTop: topInset }]}>
+    <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={palette.bg} translucent={Platform.OS === 'android'} />
+    <View style={s.ambientLayer} pointerEvents="none">
+      <Animated.View
+        style={[
+          s.ambientOrbA,
+          {
+            transform: [
+              {
+                translateY: appFloatA.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -28],
+                }),
+              },
+              { scale: appPulse },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          s.ambientOrbB,
+          {
+            transform: [
+              {
+                translateY: appFloatB.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 24],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+    </View>
     <View style={s.topbar}>
       {tab !== 'Home' ? (
         <TouchableOpacity style={s.headerBackButton} onPress={handleBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Go back">
@@ -1377,8 +1520,16 @@ function AppContent() {
         </TouchableOpacity>
       ) : null}
       <View style={tab !== 'Home' ? s.brandGroupCompact : s.brandGroup}>
-        <View style={[s.brandMark, tab !== 'Home' && { width: 26, height: 26, borderRadius: 8 }]}><Text style={[s.brandMarkText, tab !== 'Home' && { fontSize: 15 }]}>C</Text></View>
-        <Text style={[s.brand, tab !== 'Home' && { fontSize: 15, marginLeft: 6 }]}>
+        <LinearGradient
+          colors={['#3B82F6', '#8B5CF6']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[s.brandMarkCube, tab !== 'Home' && { width: 28, height: 28, borderRadius: 9 }]}
+        >
+          <Text style={[s.brandMarkText, tab !== 'Home' && { fontSize: 15 }]}>C</Text>
+          <Text style={s.brandSparkle}>✦</Text>
+        </LinearGradient>
+        <Text style={[s.brand, tab !== 'Home' && { fontSize: 15, marginLeft: 7 }]}>
           {tab === 'Home' ? <>Campus<Text style={{ color: palette.blue }}>Link</Text></> : (role === 'Placement' && tab === 'Profile' ? 'Analytics' : tab)}
         </Text>
       </View>
@@ -1387,53 +1538,401 @@ function AppContent() {
       <TouchableOpacity style={s.miniAvatar} onPress={() => setModal('account')} accessibilityRole="button" accessibilityLabel="Account details and log out"><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></TouchableOpacity>
     </View>
     {role === 'Student' && !authUser && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.studentPicker} contentContainerStyle={s.studentPickerContent}>{students.map((person) => <TouchableOpacity key={person.id} onPress={() => setStudentId(person.id)} style={[s.personChip, student.id === person.id && s.personChipSelected]}><Text style={[s.personChipText, student.id === person.id && s.personChipTextSelected]}>{person.name}</Text></TouchableOpacity>)}</ScrollView>}
-    <ScrollView key={`${role}-${tab}-${student.id}`} style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{content}</ScrollView>
-    <View style={s.nav}>{TABS.map(([name, icon]) => <TouchableOpacity style={s.navItem} key={name} onPress={() => goToTab(name)}><Text style={[s.navIcon, tab === name && s.navActiveText]}>{icon}</Text><Text style={[s.navLabel, tab === name && s.navLabelSelected]}>{role === 'Placement' && name === 'Profile' ? 'Analytics' : name}</Text></TouchableOpacity>)}</View>
+    <ScrollView key={`${role}-${tab}-${student.id}`} style={s.scroll} contentContainerStyle={[s.content, { paddingBottom: Math.max(insets.bottom, 12) + 76 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{content}</ScrollView>
+    <View style={[s.navDockWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <View style={s.navDock}>
+        {TABS.map(([name, icon]) => {
+          const isActive = tab === name;
+          return (
+            <TouchableOpacity
+              style={s.navDockItem}
+              key={name}
+              onPress={() => goToTab(name)}
+              activeOpacity={0.7}
+            >
+              {isActive ? (
+                <LinearGradient
+                  colors={['#3B82F6', '#2563EB']}
+                  style={s.navActivePill}
+                >
+                  <Text style={s.navActiveIcon}>{icon}</Text>
+                  <Text style={s.navActiveLabel} numberOfLines={1}>
+                    {role === 'Placement' && name === 'Profile' ? 'Analytics' : name}
+                  </Text>
+                </LinearGradient>
+              ) : (
+                <View style={s.navInactiveItem}>
+                  <Text style={s.navIcon}>{icon}</Text>
+                  <Text style={s.navLabel} numberOfLines={1}>
+                    {role === 'Placement' && name === 'Profile' ? 'Analytics' : name}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
     {!!notice && <View style={s.toast} pointerEvents="none"><Text style={s.toastText}>{notice}</Text></View>}
     {formModal()}{openSelectedJobDetails()}{candidateModal()}{accountModal()}
   </View>;
 }
 
-function Hero({ eyebrow, title, subtitle, action, onAction }) { return <View style={s.hero}><Text style={s.eyebrow}>{eyebrow}</Text><Text style={s.heroTitle}>{title}</Text><Text style={s.heroSub}>{subtitle}</Text>{action && <PrimaryButton label={action} onPress={onAction} />}</View>; }
-function PrimaryButton({ label, onPress, disabled }) { return <TouchableOpacity style={[s.button, disabled && s.buttonDisabled]} disabled={disabled} onPress={onPress}><Text style={s.buttonText}>{label}</Text></TouchableOpacity>; }
-function Metric({ value, label, last }) { return <View style={[s.metric, last && s.metricLast]}><Text style={s.metricValue}>{value}</Text><Text style={s.metricLabel}>{label}</Text></View>; }
-function Section({ title, action, onPress }) { return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text>{action && <TouchableOpacity onPress={onPress}><Text style={s.link}>{action} ›</Text></TouchableOpacity>}</View>; }
+function Hero({ eyebrow, title, subtitle, action, onAction }) {
+  return (
+    <View style={s.heroContainer}>
+      <LinearGradient
+        colors={['#0F172A', '#1E293B', '#1E1B4B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={s.hero}
+      >
+        <View style={s.heroGlowOrbA} />
+        <View style={s.heroGlowOrbB} />
+        <View style={s.heroEyebrowPill}>
+          <Text style={s.heroEyebrowSpark}>✦</Text>
+          <Text style={s.eyebrow}>{eyebrow}</Text>
+        </View>
+        <Text style={s.heroTitle}>{title}</Text>
+        <Text style={s.heroSub}>{subtitle}</Text>
+        {action && (
+          <TouchableOpacity style={s.heroActionBtn} onPress={onAction} activeOpacity={0.85}>
+            <LinearGradient
+              colors={['#3B82F6', '#6366F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.heroBtnGrad}
+            >
+              <Text style={s.heroBtnText}>{action}</Text>
+              <Text style={s.heroBtnArrow}>→</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+      </LinearGradient>
+    </View>
+  );
+}
+
+function PrimaryButton({ label, onPress, disabled }) {
+  return (
+    <TouchableOpacity
+      style={[s.button, disabled && s.buttonDisabled]}
+      disabled={disabled}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <Text style={s.buttonText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function Metric({ value, label, last }) {
+  const meta = getMetricTheme(label);
+  return (
+    <View style={s.metricCard3D}>
+      <LinearGradient colors={meta.colors} style={s.metricIconCube}>
+        <Text style={s.metricIconText}>{meta.icon}</Text>
+      </LinearGradient>
+      <Text style={s.metricValue3D}>{value}</Text>
+      <Text style={s.metricLabel3D} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+}
+
+function Section({ title, action, onPress }) {
+  return (
+    <View style={s.section}>
+      <View style={s.sectionTitleRow}>
+        <View style={s.sectionDot} />
+        <Text style={s.sectionTitle}>{title}</Text>
+      </View>
+      {action && (
+        <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+          <Text style={s.link}>{action} ›</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 function InfoBox({ title, body }) { return <View style={s.infoBox}><Text style={s.infoTitle}>{title}</Text><Text style={s.infoBody}>{body}</Text></View>; }
 function EmptyState({ text }) { return <View style={s.empty}><Text style={s.emptyText}>{text}</Text></View>; }
-function MessageCard({ item, onRead }) { return <TouchableOpacity style={s.messageCard} onPress={onRead}><View style={[s.messageMark, item.unread && s.messageUnread]}><Text style={s.messageMarkText}>•</Text></View><View style={s.grow}><Text style={s.cardTitle}>{item.title}</Text><Text style={s.bodySmall}>{item.body}</Text><Text style={s.microcopy}>{item.time}</Text></View></TouchableOpacity>; }
-function Field({ label, value, onChange, placeholder, multiline, keyboardType }) { return <View style={s.fieldGroup}><Text style={s.fieldLabel}>{label}</Text><TextInput style={[s.fieldInput, multiline && s.multiline]} value={value || ''} onChangeText={onChange} placeholder={placeholder || ''} placeholderTextColor="#9AA7B8" multiline={multiline} keyboardType={keyboardType || 'default'} autoCapitalize="sentences" /></View>; }
+function MessageCard({ item, onRead }) {
+  return (
+    <TouchableOpacity style={s.messageCard} onPress={onRead} activeOpacity={0.85}>
+      <View style={[s.messageMark, item.unread && s.messageUnread]}>
+        <Text style={s.messageMarkText}>•</Text>
+      </View>
+      <View style={s.grow}>
+        <Text style={s.cardTitle}>{item.title}</Text>
+        <Text style={s.bodySmall}>{item.body}</Text>
+        <Text style={s.microcopy}>{item.time}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, multiline, keyboardType }) { return <View style={s.fieldGroup}><Text style={s.fieldLabel}>{label}</Text><TextInput style={[s.fieldInput, multiline && s.multiline]} value={value || ''} onChangeText={onChange} placeholder={placeholder || ''} placeholderTextColor="#94A3B8" multiline={multiline} keyboardType={keyboardType || 'default'} autoCapitalize="sentences" /></View>; }
 function ProfileList({ title, values }) { return <View style={s.profileSection}><Text style={s.sectionTitle}>{title}</Text>{values.length ? values.map((value, index) => <Text key={`${title}-${index}`} style={s.profileValue}>•  {value}</Text>) : <Text style={s.muted}>Not added yet</Text>}</View>; }
 function ScoreRow({ label, value, max, note }) { return <View style={s.scoreRow}><View style={s.rowBetween}><Text style={s.bodySmall}>{label}</Text><Text style={s.scoreText}>{value}/{max}</Text></View><View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.min(100, (value / max) * 100)}%` }]} /></View>{note && <Text style={s.microcopy}>{note}</Text>}</View>; }
+
 function ApplicationCard({ application, role, onStage }) {
   const nextStage = { Applied: 'Shortlisted', Shortlisted: 'Interview', Interview: 'Offer' }[application.stage];
   const studentAction = application.stage === 'Offer' ? ['Documents', 'Accept offer'] : application.stage === 'Documents' ? ['Accepted', 'Mark documents submitted'] : application.stage === 'Accepted' ? ['Joined', 'Confirm joining'] : null;
   const active = !['Joined', 'Declined'].includes(application.stage);
   return <View style={s.card}>
-    <View style={s.rowBetween}><View style={s.grow}><Text style={s.overline}>{application.company}</Text><Text style={s.cardTitle}>{application.jobTitle}</Text><Text style={s.muted}>{role === 'Student' ? 'Your application' : application.candidateName}</Text></View><View style={s.stagePill}><Text style={s.stageText}>{application.stage}</Text></View></View>
+    <View style={s.rowBetween}>
+      <View style={s.grow}>
+        <Text style={s.overline}>{application.company.toUpperCase()}</Text>
+        <Text style={s.cardTitle}>{application.jobTitle}</Text>
+        <Text style={s.muted}>{role === 'Student' ? 'Your application' : application.candidateName}</Text>
+      </View>
+      <View style={s.stagePill}><Text style={s.stageText}>{application.stage}</Text></View>
+    </View>
     <View style={s.stageTrack}>{CAREER_STAGES.slice(0, 7).map((stage, index) => <View style={s.stageCell} key={stage}><View style={[s.stageDot, CAREER_STAGES.indexOf(application.stage) >= index && application.stage !== 'Declined' && s.stageDotActive]} /><Text style={s.stageTiny}>{stage === 'Documents' ? 'Docs' : stage}</Text></View>)}</View>
     <Text style={s.microcopy}>Last updated · {application.updated || 'Just now'}{application.stage === 'Declined' ? ` · ${application.dropOff || 'Candidate withdrew'}` : ''}</Text>
-    {role === 'Recruiter' || role === 'Placement' ? active && <View style={s.actionRow}>{nextStage && <TouchableOpacity style={s.smallButton} onPress={() => onStage(application, nextStage)}><Text style={s.smallButtonText}>Move to {nextStage}</Text></TouchableOpacity>}<TouchableOpacity style={s.buttonSoft} onPress={() => onStage(application, 'Declined')}><Text style={s.buttonSoftText}>Record drop-off</Text></TouchableOpacity></View> : active && <View style={s.actionRow}>
-      {studentAction && <TouchableOpacity style={s.smallButton} onPress={() => onStage(application, studentAction[0])}><Text style={s.smallButtonText}>{studentAction[1]}</Text></TouchableOpacity>}
-      {application.stage === 'Offer' && <TouchableOpacity style={s.buttonSoft} onPress={() => onStage(application, 'Declined')}><Text style={s.buttonSoftText}>Decline offer</Text></TouchableOpacity>}
-      {!['Offer', 'Documents', 'Accepted'].includes(application.stage) && <TouchableOpacity style={s.buttonSoft} onPress={() => onStage(application, 'Declined')}><Text style={s.buttonSoftText}>Withdraw</Text></TouchableOpacity>}
-    </View>}
+    {role === 'Recruiter' || role === 'Placement' ? (
+      active && <View style={s.actionRow}>
+        {nextStage && <TouchableOpacity style={s.smallButton} onPress={() => onStage(application, nextStage)} activeOpacity={0.85}><Text style={s.smallButtonText}>Move to {nextStage} →</Text></TouchableOpacity>}
+        <TouchableOpacity style={s.buttonSoft} onPress={() => onStage(application, 'Declined')} activeOpacity={0.85}><Text style={s.buttonSoftText}>Record drop-off</Text></TouchableOpacity>
+      </View>
+    ) : (
+      active && <View style={s.actionRow}>
+        {studentAction && <TouchableOpacity style={s.smallButton} onPress={() => onStage(application, studentAction[0])} activeOpacity={0.85}><Text style={s.smallButtonText}>{studentAction[1]} →</Text></TouchableOpacity>}
+        {application.stage === 'Offer' && <TouchableOpacity style={s.buttonSoft} onPress={() => onStage(application, 'Declined')} activeOpacity={0.85}><Text style={s.buttonSoftText}>Decline offer</Text></TouchableOpacity>}
+        {!['Offer', 'Documents', 'Accepted'].includes(application.stage) && <TouchableOpacity style={s.buttonSoft} onPress={() => onStage(application, 'Declined')} activeOpacity={0.85}><Text style={s.buttonSoftText}>Withdraw</Text></TouchableOpacity>}
+      </View>
+    )}
   </View>;
 }
-function funnelCard(applications) { return <View style={s.funnel}>{[['Applied', applications.filter((x) => x.stage === 'Applied').length], ['Shortlisted', applications.filter((x) => x.stage === 'Shortlisted').length], ['Interview', applications.filter((x) => x.stage === 'Interview').length], ['Offer', applications.filter((x) => ['Offer', 'Documents', 'Accepted'].includes(x.stage)).length], ['Joined', applications.filter((x) => x.stage === 'Joined').length]].map(([name, count]) => <View style={s.funnelRow} key={name}><Text style={s.bodySmall}>{name}</Text><View style={s.funnelTrack}><View style={[s.funnelFill, { width: `${applications.length ? Math.max(8, (count / applications.length) * 100) : 0}%` }]} /></View><Text style={s.funnelCount}>{count}</Text></View>)}</View>; }
-function searchBox(value, onChange, placeholder) { return <View style={s.search}><Text style={s.searchIcon}>⌕</Text><TextInput style={s.searchInput} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="#9AA7B8" /></View>; }
+
+function funnelCard(applications) {
+  return (
+    <View style={s.funnel}>
+      {[
+        ['Applied', applications.filter((x) => x.stage === 'Applied').length],
+        ['Shortlisted', applications.filter((x) => x.stage === 'Shortlisted').length],
+        ['Interview', applications.filter((x) => x.stage === 'Interview').length],
+        ['Offer', applications.filter((x) => ['Offer', 'Documents', 'Accepted'].includes(x.stage)).length],
+        ['Joined', applications.filter((x) => x.stage === 'Joined').length],
+      ].map(([name, count]) => (
+        <View style={s.funnelRow} key={name}>
+          <Text style={s.bodySmall}>{name}</Text>
+          <View style={s.funnelTrack}><View style={[s.funnelFill, { width: `${applications.length ? Math.max(8, (count / applications.length) * 100) : 0}%` }]} /></View>
+          <Text style={s.funnelCount}>{count}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function searchBox(value, onChange, placeholder) {
+  return (
+    <View style={s.searchBox3D}>
+      <Text style={s.searchIcon3D}>🔍</Text>
+      <TextInput
+        style={s.searchInput3D}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor="#94A3B8"
+      />
+      {value ? (
+        <TouchableOpacity onPress={() => onChange('')} style={s.searchClearBtn} activeOpacity={0.7}>
+          <Text style={s.searchClearText}>×</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
 
 const makeStyles = (C) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg }, topbar: { height: 52, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }, brandMark: { width: 30, height: 30, borderRadius: 10, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center' }, brandMarkText: { color: C.white, fontWeight: '900', fontSize: 18 }, brand: { marginLeft: 9, color: C.navy, fontWeight: '800', fontSize: 17 }, themeButton: { marginLeft: 'auto', marginRight: 12, width: 30, height: 30, borderRadius: 10, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' }, themeIcon: { color: C.navy, fontSize: 17, fontWeight: '800' }, headerButton: { marginRight: 15, position: 'relative' }, headerIcon: { color: C.navy, fontSize: 19 }, bellDot: { position: 'absolute', right: -1, top: 0, width: 7, height: 7, borderRadius: 4, backgroundColor: C.red }, miniAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' }, miniAvatarText: { color: C.blue, fontWeight: '800', fontSize: 9 }, studentPicker: { maxHeight: 40, marginTop: 5 }, studentPickerContent: { paddingHorizontal: 16, gap: 7, alignItems: 'center' }, personChip: { borderRadius: 15, borderWidth: 1, borderColor: C.line, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: C.white }, personChipSelected: { borderColor: '#B7C9FF', backgroundColor: C.pale }, personChipText: { color: C.muted, fontSize: 9, fontWeight: '700' }, personChipTextSelected: { color: C.blue }, scroll: { flex: 1 }, content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 22 }, hero: { backgroundColor: C.navy, borderRadius: 21, padding: 19, marginBottom: 14 }, eyebrow: { color: C.blue, fontSize: 9, letterSpacing: 1.2, fontWeight: '800' }, heroTitle: { color: C.white, fontSize: 25, lineHeight: 30, letterSpacing: -0.5, fontWeight: '800', marginTop: 7 }, heroSub: { color: '#C5CEE0', fontSize: 11, lineHeight: 17, marginTop: 6, marginBottom: 13 }, button: { backgroundColor: C.blue, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, alignItems: 'center', justifyContent: 'center' }, buttonText: { color: C.white, fontSize: 11, fontWeight: '800' }, buttonDisabled: { backgroundColor: '#AEBBD3' }, metricRow: { flexDirection: 'row', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 15, paddingVertical: 13, marginBottom: 19 }, metric: { flex: 1, alignItems: 'center', borderRightWidth: 1, borderColor: C.line, paddingHorizontal: 3 }, metricLast: { borderRightWidth: 0 }, metricValue: { color: C.navy, fontWeight: '800', fontSize: 16 }, metricLabel: { color: C.muted, fontSize: 9, marginTop: 3, textAlign: 'center' }, section: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 9 }, sectionTitle: { color: C.navy, fontWeight: '800', fontSize: 14 }, link: { color: C.blue, fontSize: 10, fontWeight: '800' }, card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 15, padding: 13, marginBottom: 10 }, row: { flexDirection: 'row', alignItems: 'center', gap: 10 }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, grow: { flex: 1 }, logo: { width: 38, height: 38, borderRadius: 12, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' }, logoText: { color: C.blue, fontWeight: '900', fontSize: 16 }, overline: { color: C.muted, fontSize: 8, letterSpacing: 0.8, fontWeight: '800' }, cardTitle: { color: C.navy, fontSize: 12, fontWeight: '800', marginTop: 2 }, muted: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 }, microcopy: { color: C.muted, fontSize: 8, lineHeight: 12, marginTop: 7 }, scorePill: { backgroundColor: C.softGreen, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' }, scoreText: { color: C.green, fontSize: 12, fontWeight: '900' }, scoreCaption: { color: C.green, fontSize: 7, fontWeight: '700' }, tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8, marginBottom: 5 }, tag: { color: C.ink, backgroundColor: C.pale, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 12, fontSize: 8, fontWeight: '700' }, skillTag: { color: C.green, backgroundColor: C.softGreen, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 12, fontSize: 8, fontWeight: '700', overflow: 'hidden' }, skillMatched: { color: C.green }, skillMissing: { color: C.orange, backgroundColor: C.pale }, buttonSoft: { backgroundColor: C.pale, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 9, alignItems: 'center', justifyContent: 'center' }, buttonSoftText: { color: C.blue, fontSize: 10, fontWeight: '800' }, candidateCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 12, marginBottom: 9 }, avatar: { height: 38, width: 38, borderRadius: 19, backgroundColor: '#E7EDFF', alignItems: 'center', justifyContent: 'center' }, avatarText: { color: C.blue, fontSize: 10, fontWeight: '900' }, smallButton: { backgroundColor: C.blue, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, alignSelf: 'center' }, smallButtonText: { color: C.white, fontSize: 9, fontWeight: '800' }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }, selectJob: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', marginBottom: 8 }, infoBox: { backgroundColor: C.pale, borderWidth: 1, borderColor: '#DFE7FB', borderRadius: 13, padding: 12, marginVertical: 8 }, infoTitle: { color: C.navy, fontSize: 10, fontWeight: '800' }, infoBody: { color: C.muted, fontSize: 9, lineHeight: 14, marginTop: 4 }, conflictBanner: { backgroundColor: C.softRed, borderColor: '#F3D4D7', borderWidth: 1, borderRadius: 13, padding: 12, marginBottom: 12, flexDirection: 'row', gap: 9, alignItems: 'center' }, conflictIcon: { width: 24, height: 24, textAlign: 'center', textAlignVertical: 'center', color: C.red, backgroundColor: '#FFE1E4', borderRadius: 12, fontWeight: '900' }, riskRow: { backgroundColor: C.white, borderColor: C.line, borderWidth: 1, borderRadius: 13, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8 }, stagePill: { backgroundColor: C.pale, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 }, stageText: { color: C.blue, fontSize: 8, fontWeight: '800' }, stageTrack: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, marginBottom: 7 }, stageCell: { flex: 1, alignItems: 'center' }, stageDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#DCE2EC' }, stageDotActive: { backgroundColor: C.blue }, stageTiny: { color: C.muted, fontSize: 6, marginTop: 4, textAlign: 'center' }, actionRow: { flexDirection: 'row', gap: 8, marginTop: 10 }, dateBox: { width: 42, height: 46, borderRadius: 11, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' }, dateDay: { color: C.blue, fontSize: 16, fontWeight: '900' }, dateMon: { color: C.blue, fontSize: 8, fontWeight: '800' }, eventCard: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 11, marginBottom: 9 }, conflictInline: { backgroundColor: C.softRed, borderColor: '#F3D4D7', borderWidth: 1, borderRadius: 12, padding: 11, marginVertical: 9 }, messageCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 13, padding: 12, flexDirection: 'row', gap: 10, marginBottom: 8 }, messageMark: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1F6' }, messageUnread: { backgroundColor: '#DCE6FF' }, messageMarkText: { color: C.blue, fontSize: 18, lineHeight: 20 }, bodySmall: { color: C.ink, fontSize: 9, lineHeight: 14, marginTop: 4 }, body: { color: C.ink, fontSize: 10, lineHeight: 16, marginTop: 10 }, empty: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 13, padding: 18, alignItems: 'center' }, emptyText: { color: C.muted, textAlign: 'center', fontSize: 10, lineHeight: 16 }, search: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 11, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11, marginBottom: 10 }, searchIcon: { fontSize: 17, color: C.muted, marginRight: 6 }, searchInput: { flex: 1, color: C.ink, fontSize: 10, paddingVertical: 10 }, profileSection: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 13, padding: 12, marginBottom: 9 }, profileValue: { color: C.ink, fontSize: 9, marginTop: 7, lineHeight: 14 }, learningRow: { backgroundColor: C.white, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: C.line, marginBottom: 7 }, progressTrack: { height: 5, borderRadius: 3, backgroundColor: C.pale, marginTop: 6 }, progressFill: { height: 5, borderRadius: 3, backgroundColor: C.blue }, funnel: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 13, padding: 12, marginBottom: 10 }, funnelRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 5, gap: 9 }, funnelTrack: { flex: 1, height: 6, backgroundColor: C.pale, borderRadius: 3, overflow: 'hidden' }, funnelFill: { height: 6, borderRadius: 3, backgroundColor: C.blue }, funnelCount: { color: C.navy, fontSize: 9, fontWeight: '800', width: 17, textAlign: 'right' }, overlay: { flex: 1, backgroundColor: 'rgba(18,35,63,0.45)', justifyContent: 'center', padding: 16 }, modalCard: { maxHeight: '92%', backgroundColor: C.white, borderRadius: 19, padding: 17 }, modalTitle: { color: C.navy, fontWeight: '900', fontSize: 17, flex: 1 }, close: { color: C.muted, fontSize: 26, paddingHorizontal: 5 }, fieldGroup: { marginBottom: 12 }, fieldLabel: { color: C.navy, fontWeight: '800', fontSize: 9, marginBottom: 5 }, fieldInput: { minHeight: 39, borderWidth: 1, borderColor: C.line, borderRadius: 9, paddingHorizontal: 10, color: C.ink, fontSize: 10 }, multiline: { minHeight: 92, textAlignVertical: 'top', paddingTop: 9 }, modalActions: { flexDirection: 'row', gap: 9, marginTop: 11 }, cancelButton: { flex: 1, borderRadius: 9, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', paddingVertical: 11 }, cancelText: { color: C.muted, fontSize: 10, fontWeight: '800' }, analysisBox: { backgroundColor: '#F4F8FF', borderWidth: 1, borderColor: '#DCE7FC', borderRadius: 12, padding: 11, marginVertical: 9 }, bigScore: { backgroundColor: C.softGreen, borderRadius: 15, padding: 15, alignItems: 'center', marginVertical: 12 }, bigScoreValue: { color: C.green, fontWeight: '900', fontSize: 32 }, bigScoreLabel: { color: C.green, fontSize: 9, fontWeight: '700' }, scoreRow: { paddingVertical: 7 }, matchPanel: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 10, marginVertical: 5 }, nav: { height: 58, flexDirection: 'row', backgroundColor: C.white, borderTopWidth: 1, borderColor: C.line, paddingTop: 5 }, navItem: { flex: 1, alignItems: 'center' }, navIcon: { color: '#93A0B2', fontSize: 17, height: 23 }, navActiveText: { color: C.blue }, navLabel: { color: C.muted, fontSize: 7 }, navLabelSelected: { color: C.blue, fontWeight: '800' },    toast: { position: 'absolute', bottom: 68, alignSelf: 'center', maxWidth: '90%', backgroundColor: C.navy, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 10, elevation: 5 }, toastText: { color: C.white, fontSize: 10, fontWeight: '700', textAlign: 'center' },
-    autoLoginBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.softGreen, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10 },
-    autoLoginBadgeIcon: { fontSize: 13, color: C.green },
-    autoLoginBadgeText: { fontSize: 9, fontWeight: '700', color: C.green },
-    headerBackButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.pale, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, marginRight: 8 },
-    headerBackIcon: { color: C.blue, fontSize: 22, fontWeight: '900', lineHeight: 22, marginTop: -2, marginRight: 3 },
-    headerBackLabel: { color: C.blue, fontSize: 11, fontWeight: '800' },
-    brandGroup: { flexDirection: 'row', alignItems: 'center' },
-    brandGroupCompact: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    modalBackBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.pale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 8 },
-    modalBackText: { color: C.blue, fontSize: 11, fontWeight: '800' },
+  safe: { flex: 1, backgroundColor: C.bg },
+  ambientLayer: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  ambientOrbA: { position: 'absolute', width: 340, height: 340, borderRadius: 170, backgroundColor: 'rgba(99, 102, 241, 0.07)', top: 40, right: -100 },
+  ambientOrbB: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(6, 182, 212, 0.06)', top: 440, left: -90 },
+  topbar: { height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.line },
+  brandMarkCube: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', shadowColor: '#6366F1', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
+  brandMark: { width: 30, height: 30, borderRadius: 10, backgroundColor: C.blue, alignItems: 'center', justifyContent: 'center' },
+  brandMarkText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18 },
+  brandSparkle: { position: 'absolute', top: 2, right: 3, color: '#FDE047', fontSize: 9, fontWeight: '900' },
+  brand: { marginLeft: 10, color: C.navy, fontWeight: '900', fontSize: 18, letterSpacing: -0.3 },
+  themeButton: { marginLeft: 'auto', marginRight: 10, width: 34, height: 34, borderRadius: 11, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line },
+  themeIcon: { color: C.navy, fontSize: 16, fontWeight: '800' },
+  headerButton: { marginRight: 12, width: 34, height: 34, borderRadius: 11, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, position: 'relative' },
+  headerIcon: { color: C.navy, fontSize: 17 },
+  bellDot: { position: 'absolute', right: 5, top: 5, width: 7, height: 7, borderRadius: 4, backgroundColor: C.red, borderWidth: 1, borderColor: C.white },
+  miniAvatar: { width: 34, height: 34, borderRadius: 12, backgroundColor: C.paleBlue || C.pale, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.blue },
+  miniAvatarText: { color: C.blue, fontWeight: '900', fontSize: 11 },
+  studentPicker: { maxHeight: 44, marginTop: 6 },
+  studentPickerContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  personChip: { borderRadius: 14, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.white },
+  personChipSelected: { borderColor: C.blue, backgroundColor: C.paleBlue || C.pale, borderBottomColor: C.blueDark || '#1D4ED8' },
+  personChipText: { color: C.muted, fontSize: 10, fontWeight: '700' },
+  personChipTextSelected: { color: C.blue, fontWeight: '800' },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 95 },
+  heroContainer: { marginBottom: 14, borderRadius: 22, shadowColor: '#1E293B', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 7 },
+  hero: { borderRadius: 22, padding: 20, overflow: 'hidden', position: 'relative' },
+  heroGlowOrbA: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(99, 102, 241, 0.25)', top: -50, right: -40 },
+  heroGlowOrbB: { position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(6, 182, 212, 0.15)', bottom: -40, left: -30 },
+  heroEyebrowPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginBottom: 8 },
+  heroEyebrowSpark: { color: '#38BDF8', fontSize: 11 },
+  eyebrow: { color: '#E0F2FE', fontSize: 10, letterSpacing: 1.2, fontWeight: '800' },
+  heroTitle: { color: '#FFFFFF', fontSize: 26, lineHeight: 32, letterSpacing: -0.6, fontWeight: '900', marginTop: 4 },
+  heroSub: { color: '#CBD5E1', fontSize: 12, lineHeight: 18, marginTop: 7, marginBottom: 16 },
+  heroActionBtn: { borderRadius: 14, overflow: 'hidden', shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5 },
+  heroBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 18, borderBottomWidth: 3, borderBottomColor: '#1D4ED8', borderRadius: 14 },
+  heroBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  heroBtnArrow: { color: '#93C5FD', fontSize: 15, fontWeight: '900' },
+  button: { backgroundColor: C.blue, borderBottomWidth: 3.5, borderBottomColor: C.blueDark || '#1D4ED8', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', shadowColor: C.blue, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  buttonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+  buttonDisabled: { backgroundColor: '#94A3B8', borderBottomColor: '#64748B' },
+  buttonSoft: { backgroundColor: C.pale, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  buttonSoftText: { color: C.blue, fontSize: 11, fontWeight: '800' },
+  metricRow: { flexDirection: 'row', gap: 9, marginBottom: 16 },
+  metricCard3D: { flex: 1, backgroundColor: C.white, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderBottomWidth: 3.5, borderBottomColor: '#CBD5E1', shadowColor: C.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  metricIconCube: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 },
+  metricIconText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  metricValue3D: { color: C.navy, fontSize: 18, fontWeight: '900', letterSpacing: -0.3 },
+  metricLabel3D: { color: C.muted, fontSize: 9, fontWeight: '700', marginTop: 2, textAlign: 'center' },
+  section: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, marginBottom: 10 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  sectionDot: { width: 4, height: 14, borderRadius: 2, backgroundColor: C.blue, marginRight: 8 },
+  sectionTitle: { color: C.navy, fontWeight: '900', fontSize: 15, letterSpacing: -0.2 },
+  link: { color: C.blue, fontSize: 11, fontWeight: '800' },
+  card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 3.5, borderBottomColor: '#CBD5E1', borderRadius: 18, padding: 15, marginBottom: 12, shadowColor: C.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  grow: { flex: 1 },
+  logoCube: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
+  logoCubeText: { color: '#FFFFFF', fontWeight: '900', fontSize: 19 },
+  logo: { width: 40, height: 40, borderRadius: 13, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' },
+  logoText: { color: C.blue, fontWeight: '900', fontSize: 17 },
+  overline: { color: C.muted, fontSize: 9, letterSpacing: 1, fontWeight: '800' },
+  cardTitle: { color: C.navy, fontSize: 14, fontWeight: '900', marginTop: 2, letterSpacing: -0.2 },
+  muted: { color: C.muted, fontSize: 10, lineHeight: 15, marginTop: 4 },
+  microcopy: { color: C.muted, fontSize: 9, lineHeight: 13, marginTop: 8 },
+  scoreBadge3D: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7, alignItems: 'center', minWidth: 50, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
+  scoreText3D: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  scoreCaption3D: { color: 'rgba(255,255,255,0.85)', fontSize: 7, fontWeight: '800', letterSpacing: 0.5 },
+  scorePill: { backgroundColor: C.softGreen, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 6, alignItems: 'center' },
+  scoreText: { color: C.green, fontSize: 13, fontWeight: '900' },
+  scoreCaption: { color: C.green, fontSize: 8, fontWeight: '700' },
+  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, marginBottom: 4 },
+  colorfulTag: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.06)' },
+  colorfulTagText: { fontSize: 9, fontWeight: '800' },
+  tag: { color: C.ink, backgroundColor: C.pale, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, fontSize: 9, fontWeight: '700' },
+  skillTag: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, fontSize: 9, fontWeight: '800' },
+  skillTag3D: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+  skillMatched3D: { backgroundColor: C.softGreen, borderColor: '#A7F3D0' },
+  skillMatchedText: { color: C.green, fontSize: 9, fontWeight: '800' },
+  skillMissing3D: { backgroundColor: C.softAmber || '#FFFBEB', borderColor: '#FDE68A' },
+  skillMissingText: { color: C.amber || C.orange, fontSize: 9, fontWeight: '800' },
+  skillMatched: { color: C.green, backgroundColor: C.softGreen },
+  skillMissing: { color: C.orange, backgroundColor: C.softAmber || C.pale },
+  candidateCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 3.5, borderBottomColor: '#CBD5E1', borderRadius: 18, padding: 15, marginBottom: 12, shadowColor: C.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 4 },
+  avatar3D: { height: 44, width: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#8B5CF6', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
+  avatarText3D: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  avatar: { height: 40, width: 40, borderRadius: 20, backgroundColor: '#E7EDFF', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: C.blue, fontSize: 11, fontWeight: '900' },
+  readinessChip: { alignSelf: 'flex-start', backgroundColor: C.softGreen, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, marginTop: 4 },
+  readinessChipText: { color: C.green, fontSize: 9, fontWeight: '800' },
+  smallButton: { backgroundColor: C.blue, borderBottomWidth: 2.5, borderBottomColor: C.blueDark || '#1D4ED8', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'center', elevation: 3 },
+  smallButtonText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  selectJob: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderRadius: 14, padding: 13, flexDirection: 'row', alignItems: 'center', marginBottom: 9, elevation: 2 },
+  infoBox: { backgroundColor: C.pale, borderWidth: 1, borderColor: '#DCE7FC', borderLeftWidth: 4, borderLeftColor: C.blue, borderRadius: 14, padding: 13, marginVertical: 9 },
+  infoTitle: { color: C.navy, fontSize: 11, fontWeight: '900' },
+  infoBody: { color: C.muted, fontSize: 10, lineHeight: 15, marginTop: 4 },
+  conflictBanner: { backgroundColor: C.softRed, borderColor: '#FECACA', borderLeftWidth: 4, borderLeftColor: C.red, borderWidth: 1, borderRadius: 14, padding: 13, marginBottom: 12, flexDirection: 'row', gap: 10, alignItems: 'center' },
+  conflictTitle: { color: C.red, fontSize: 12, fontWeight: '900' },
+  conflictBody: { color: '#991B1B', fontSize: 10, lineHeight: 14, marginTop: 2 },
+  conflictIcon: { width: 28, height: 28, textAlign: 'center', textAlignVertical: 'center', color: '#FFFFFF', backgroundColor: C.red, borderRadius: 14, fontWeight: '900', fontSize: 14 },
+  riskRow: { backgroundColor: C.white, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 9, elevation: 2 },
+  stagePill: { backgroundColor: C.pale, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: C.line },
+  stageText: { color: C.blue, fontSize: 9, fontWeight: '800' },
+  stageTrack: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14, marginBottom: 8 },
+  stageCell: { flex: 1, alignItems: 'center' },
+  stageDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#CBD5E1' },
+  stageDotActive: { backgroundColor: C.blue, width: 10, height: 10, borderRadius: 5 },
+  stageTiny: { color: C.muted, fontSize: 7, marginTop: 4, textAlign: 'center', fontWeight: '700' },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  eventCard: { flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 3.5, borderBottomColor: '#CBD5E1', borderRadius: 18, padding: 13, marginBottom: 10, shadowColor: C.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 4 },
+  dateBox3D: { width: 48, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#FECACA', borderBottomWidth: 3, borderBottomColor: '#E2E8F0', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  dateHeader: { paddingVertical: 3, alignItems: 'center' },
+  dateMonText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  dateBody: { backgroundColor: '#FFFFFF', paddingVertical: 6, alignItems: 'center' },
+  dateDayText: { color: '#0F172A', fontSize: 17, fontWeight: '900' },
+  eventKindPill: { alignSelf: 'flex-start', backgroundColor: C.paleBlue || C.pale, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 3 },
+  eventKindText: { color: C.blue, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+  dateBox: { width: 42, height: 46, borderRadius: 11, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center' },
+  dateDay: { color: C.blue, fontSize: 16, fontWeight: '900' },
+  dateMon: { color: C.blue, fontSize: 8, fontWeight: '800' },
+  conflictInline: { backgroundColor: C.softRed, borderColor: '#FECACA', borderWidth: 1, borderRadius: 12, padding: 12, marginVertical: 9 },
+  messageCard: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderRadius: 15, padding: 13, flexDirection: 'row', gap: 11, marginBottom: 9, elevation: 2 },
+  messageMark: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF1F6' },
+  messageUnread: { backgroundColor: '#DBEAFE' },
+  messageMarkText: { color: C.blue, fontSize: 18, lineHeight: 20 },
+  bodySmall: { color: C.ink, fontSize: 10, lineHeight: 15, marginTop: 4 },
+  body: { color: C.ink, fontSize: 11, lineHeight: 17, marginTop: 10 },
+  empty: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderRadius: 16, padding: 22, alignItems: 'center', elevation: 2 },
+  emptyText: { color: C.muted, textAlign: 'center', fontSize: 11, lineHeight: 18 },
+  searchBox3D: { backgroundColor: C.white, borderWidth: 1.5, borderColor: '#CBD5E1', borderBottomWidth: 3, borderBottomColor: '#94A3B8', borderRadius: 16, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 12, elevation: 2 },
+  searchIcon3D: { fontSize: 14, marginRight: 8 },
+  searchInput3D: { flex: 1, color: C.ink, fontSize: 11, paddingVertical: 11 },
+  searchClearBtn: { padding: 6 },
+  searchClearText: { color: C.muted, fontSize: 18, fontWeight: '700' },
+  search: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderRadius: 11, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11, marginBottom: 10 },
+  searchIcon: { fontSize: 17, color: C.muted, marginRight: 6 },
+  searchInput: { flex: 1, color: C.ink, fontSize: 10, paddingVertical: 10 },
+  profileSection: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderRadius: 16, padding: 14, marginBottom: 10, elevation: 2 },
+  profileValue: { color: C.ink, fontSize: 10, marginTop: 7, lineHeight: 15 },
+  learningRow: { backgroundColor: C.white, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', marginBottom: 8, elevation: 2 },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: C.pale, marginTop: 6, overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: C.blue },
+  funnel: { backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 3, borderBottomColor: '#CBD5E1', borderRadius: 16, padding: 14, marginBottom: 12, elevation: 2 },
+  funnelRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 5, gap: 9 },
+  funnelTrack: { flex: 1, height: 7, backgroundColor: C.pale, borderRadius: 4, overflow: 'hidden' },
+  funnelFill: { height: 7, borderRadius: 4, backgroundColor: C.blue },
+  funnelCount: { color: C.navy, fontSize: 10, fontWeight: '900', width: 20, textAlign: 'right' },
+  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.65)', justifyContent: 'center', padding: 16 },
+  modalCard: { maxHeight: '92%', backgroundColor: C.white, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: C.line, elevation: 12 },
+  modalTitle: { color: C.navy, fontWeight: '900', fontSize: 18, flex: 1 },
+  close: { color: C.muted, fontSize: 26, paddingHorizontal: 5 },
+  fieldGroup: { marginBottom: 12 },
+  fieldLabel: { color: C.navy, fontWeight: '800', fontSize: 10, marginBottom: 6 },
+  fieldInput: { minHeight: 42, borderWidth: 1.5, borderColor: C.line, borderRadius: 12, paddingHorizontal: 12, color: C.ink, fontSize: 11, backgroundColor: C.bg },
+  multiline: { minHeight: 96, textAlignVertical: 'top', paddingTop: 10 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  cancelButton: { flex: 1, borderRadius: 12, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderWidth: 1, borderColor: C.line },
+  cancelText: { color: C.muted, fontSize: 11, fontWeight: '800' },
+  analysisBox: { backgroundColor: '#F0F9FF', borderWidth: 1, borderColor: '#BAE6FD', borderRadius: 14, padding: 13, marginVertical: 10 },
+  bigScore: { backgroundColor: C.softGreen, borderRadius: 18, padding: 18, alignItems: 'center', marginVertical: 14, borderWidth: 1, borderColor: '#A7F3D0' },
+  bigScoreValue: { color: C.green, fontWeight: '900', fontSize: 36 },
+  bigScoreLabel: { color: C.green, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  scoreRow: { paddingVertical: 7 },
+  matchPanel: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', borderRadius: 14, padding: 12, marginVertical: 6 },
+  navDockWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 14, paddingBottom: 8 },
+  navDock: { flexDirection: 'row', backgroundColor: C.white, borderRadius: 24, paddingVertical: 6, paddingHorizontal: 6, borderWidth: 1.5, borderColor: C.line, borderBottomWidth: 3.5, borderBottomColor: '#CBD5E1', shadowColor: C.shadowColor, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 10 },
+  navDockItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  navActivePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 16, shadowColor: C.blue, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 6, elevation: 4 },
+  navActiveIcon: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  navActiveLabel: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' },
+  navInactiveItem: { alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
+  navIcon: { color: '#94A3B8', fontSize: 16, height: 19 },
+  navLabel: { color: C.muted, fontSize: 8, fontWeight: '700', marginTop: 1 },
+  toast: { position: 'absolute', bottom: 84, alignSelf: 'center', maxWidth: '90%', backgroundColor: C.navy, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 11, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  toastText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', textAlign: 'center' },
+  autoLoginBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.softGreen, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10, borderWidth: 1, borderColor: '#A7F3D0' },
+  autoLoginBadgeIcon: { fontSize: 13, color: C.green },
+  autoLoginBadgeText: { fontSize: 9, fontWeight: '800', color: C.green },
+  headerBackButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.white, borderWidth: 1, borderColor: C.line, borderBottomWidth: 2.5, borderBottomColor: '#CBD5E1', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, marginRight: 8, elevation: 2 },
+  headerBackIcon: { color: C.blue, fontSize: 22, fontWeight: '900', lineHeight: 22, marginTop: -2, marginRight: 2 },
+  headerBackLabel: { color: C.blue, fontSize: 11, fontWeight: '800' },
+  brandGroup: { flexDirection: 'row', alignItems: 'center' },
+  brandGroupCompact: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  modalBackBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.pale, borderWidth: 1, borderColor: C.line, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, marginRight: 8 },
+  modalBackText: { color: C.blue, fontSize: 11, fontWeight: '800' },
 });
 
 const introStyles = StyleSheet.create({
