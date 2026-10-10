@@ -143,6 +143,11 @@ const START_JOBS = [
   { id: 'j-bluepeak', company: 'BluePeak Systems', title: 'Frontend Developer', location: 'Remote · India', description: 'Build accessible interfaces using React, JavaScript and Git. B.Tech in Computer Science or Information Systems preferred. 0 years experience.', qualification: 'B.Tech Computer Science or Information Systems', experienceMonths: 0, requiredSkills: ['React', 'JavaScript', 'Git'], createdBy: 'CampusLink sample' },
 ];
 
+const START_APPLICATIONS = [
+  { id: 'a-mira-northstar', studentId: 's-mira', jobId: 'j-northstar', candidateName: 'Mira Kapoor', jobTitle: 'Product Analyst Intern', company: 'Northstar Labs', stage: 'Interview', updated: 'Yesterday' },
+  { id: 'a-rohan-northstar', studentId: 's-rohan', jobId: 'j-northstar', candidateName: 'Rohan Verma', jobTitle: 'Product Analyst Intern', company: 'Northstar Labs', stage: 'Shortlisted', updated: '2 days ago' },
+];
+
 function initials(name = '') { return name.split(/\s+/).slice(0, 2).map((part) => part[0] || '').join('').toUpperCase() || 'CL'; }
 function normalizeAuthPassword(value = '') {
   const p = String(value || '');
@@ -235,7 +240,7 @@ function AppContent() {
   const [studentId, setStudentId] = useState(START_STUDENTS[0].id);
   const [candidateDetailId, setCandidateDetailId] = useState(START_STUDENTS[0].id);
   const [jobs, setJobs] = useState(START_JOBS);
-  const [applications, setApplications] = useState([]);
+  const [applications, setApplications] = useState(START_APPLICATIONS);
   const [drives, setDrives] = useState([
     { id: 'd-exam', title: 'End-semester examination', company: 'University', kind: 'Exam', date: '2026-10-12', time: '10:00', duration: 120, audience: 'All students' },
     { id: 'd-bluepeak', title: 'Engineering campus drive', company: 'BluePeak Systems', kind: 'Placement drive', date: '2026-10-12', time: '11:00', duration: 120, audience: 'Computer Science · Information Systems' },
@@ -1259,7 +1264,38 @@ function AppContent() {
             <Text style={s.autoLoginBadgeText}>Auto login active on this device</Text>
           </View>
         )}
-        <TouchableOpacity style={[s.buttonSoft, { marginTop: 14 }]} onPress={() => { setModal(''); logoutUser(); }}>
+        <Text style={[s.overline, { marginTop: 14, marginBottom: 8 }]}>QUICK WORKSPACE SWITCH (TEST & DEMO)</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+          {[
+            { id: 'Student', icon: '👨‍🎓', label: 'Student' },
+            { id: 'Recruiter', icon: '🏢', label: 'Recruiter' },
+            { id: 'Placement', icon: '🧭', label: 'Placement' },
+          ].map((item) => {
+            const isCurrent = role === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  s.buttonSoft,
+                  { flex: 1, paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', borderRadius: 10 },
+                  isCurrent && { backgroundColor: palette.navy, borderColor: '#75E6DE', borderWidth: 1.5 }
+                ]}
+                onPress={() => {
+                  setRole(item.id);
+                  setTab('Home');
+                  setModal('');
+                  notify(`Switched to ${item.label} workspace.`, 'all', 'Workspace Active');
+                }}
+              >
+                <Text style={{ fontSize: 16, marginBottom: 2 }}>{item.icon}</Text>
+                <Text style={[{ fontSize: 11, fontWeight: '700', color: palette.textSecondary }, isCurrent && { color: '#75E6DE' }]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <TouchableOpacity style={[s.buttonSoft, { marginTop: 10 }]} onPress={() => { setModal(''); logoutUser(); }}>
           <Text style={s.buttonSoftText}>{authUser ? `Log out of ${role === 'Placement' ? 'placement' : role.toLowerCase()} account` : 'Switch role / Sign in'}</Text>
         </TouchableOpacity>
       </View>
@@ -1675,6 +1711,16 @@ function AppContent() {
           {tab === 'Home' ? <>Campus<Text style={{ color: palette.blue }}>Link</Text></> : (role === 'Placement' && tab === 'Profile' ? 'Analytics' : tab)}
         </Text>
       </View>
+      <TouchableOpacity
+        style={s.headerRolePill}
+        onPress={() => setModal('account')}
+        accessibilityRole="button"
+        accessibilityLabel={`Workspace: ${role}. Tap to switch.`}
+      >
+        <Text style={s.headerRoleText}>
+          {role === 'Student' ? '👨‍🎓 Student' : role === 'Recruiter' ? '🏢 Recruiter' : '🧭 Placement'} ▾
+        </Text>
+      </TouchableOpacity>
       <TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity>
       <TouchableOpacity style={s.headerButton} onPress={() => goToTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity>
       <TouchableOpacity style={s.miniAvatar} onPress={() => setModal('account')} accessibilityRole="button" accessibilityLabel="Account details and log out"><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></TouchableOpacity>
@@ -1819,7 +1865,7 @@ function ProfileList({ title, values }) { return <View style={s.profileSection}>
 function ScoreRow({ label, value, max, note }) { return <View style={s.scoreRow}><View style={s.rowBetween}><Text style={s.bodySmall}>{label}</Text><Text style={s.scoreText}>{value}/{max}</Text></View><View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.min(100, (value / max) * 100)}%` }]} /></View>{note && <Text style={s.microcopy}>{note}</Text>}</View>; }
 
 function ApplicationCard({ application, role, onStage }) {
-  const nextStage = { Applied: 'Shortlisted', Shortlisted: 'Interview', Interview: 'Offer' }[application.stage];
+  const nextStage = { Applied: 'Shortlisted', Shortlisted: 'Interview', Interview: 'Offer', Offer: 'Documents', Documents: 'Accepted', Accepted: 'Joined' }[application.stage];
   const studentAction = application.stage === 'Offer' ? ['Documents', 'Accept offer'] : application.stage === 'Documents' ? ['Accepted', 'Mark documents submitted'] : application.stage === 'Accepted' ? ['Joined', 'Confirm joining'] : null;
   const active = !['Joined', 'Declined'].includes(application.stage);
   return <View style={s.card}>
@@ -1899,6 +1945,8 @@ const makeStyles = (C) => StyleSheet.create({
   brandMarkText: { color: '#FFFFFF', fontWeight: '900', fontSize: 18 },
   brandSparkle: { position: 'absolute', top: 2, right: 3, color: '#FDE047', fontSize: 9, fontWeight: '900' },
   brand: { marginLeft: 10, color: C.navy, fontWeight: '900', fontSize: 18, letterSpacing: -0.3 },
+  headerRolePill: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: C.paleBlue || C.pale, borderWidth: 1, borderColor: C.line },
+  headerRoleText: { color: C.blue, fontSize: 10, fontWeight: '800' },
   themeButton: { marginLeft: 'auto', marginRight: 10, width: 34, height: 34, borderRadius: 11, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line },
   themeIcon: { color: C.navy, fontSize: 16, fontWeight: '800' },
   headerButton: { marginRight: 12, width: 34, height: 34, borderRadius: 11, backgroundColor: C.pale, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, position: 'relative' },
