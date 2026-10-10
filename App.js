@@ -16,6 +16,7 @@ import {
   TextInput,
   ToastAndroid,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +56,42 @@ function getMetricTheme(label) {
   if (l.includes('offer') || l.includes('join')) return { icon: '🏆', colors: ['#10B981', '#059669'] };
   return { icon: '✦', colors: ['#3B82F6', '#6366F1'] };
 }
+
+const ONBOARDING_SLIDES = [
+  {
+    id: 'slide-1',
+    eyebrow: "FROM CAMPUS TO WHAT'S NEXT",
+    title: "Your next chapter\nstarts here.",
+    subtitle: "One campus. Every opportunity.\nA clearer path to your future.",
+    tag: "✦ UNIFIED CAMPUS HUB",
+    coreIcon: "C",
+    coreStar: "✦",
+    nodes: ['S', 'C', '↗'],
+    accent: '#75E6DE',
+  },
+  {
+    id: 'slide-2',
+    eyebrow: "SMART TALENT MATCHING",
+    title: "Discover roles by\nreal skill fit.",
+    subtitle: "Transparent fit scoring, actionable skill\ngaps & personalized learning roadmap.",
+    tag: "✦ EXPLAINABLE MATCHING",
+    coreIcon: "⚡",
+    coreStar: "95%",
+    nodes: ['✓', '🎯', '★'],
+    accent: '#C4A5FF',
+  },
+  {
+    id: 'slide-3',
+    eyebrow: "SEAMLESS CAMPUS DRIVES",
+    title: "Direct connection to\ntop recruiters.",
+    subtitle: "Coordinate drives without clashes,\nattend interviews, and track every offer.",
+    tag: "✦ END-TO-END PLACEMENT",
+    coreIcon: "🏢",
+    coreStar: "🏆",
+    nodes: ['📅', '✉', '✓'],
+    accent: '#FFC56E',
+  },
+];
 const AUTH_TOKEN_KEY = 'campuslink.authToken';
 const AUTH_USER_KEY = 'campuslink.authUser';
 const AUTH_PROFILE_KEY = 'campuslink.authProfile';
@@ -218,6 +255,15 @@ function AppContent() {
   const appPulse = useRef(new Animated.Value(1)).current;
   const appFloatA = useRef(new Animated.Value(0)).current;
   const appFloatB = useRef(new Animated.Value(0)).current;
+
+  const { width: windowWidth } = useWindowDimensions();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const welcomeScrollRef = useRef(null);
+
+  const scrollToSlide = (idx) => {
+    setCurrentSlide(idx);
+    welcomeScrollRef.current?.scrollTo({ x: idx * windowWidth, animated: true });
+  };
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -1240,29 +1286,125 @@ function AppContent() {
       return <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: insets.bottom }]}><View style={s.introBackdrop}><View style={s.backdropOrbA} /><View style={s.backdropOrbB} /></View><View style={s.sessionLoading}><ActivityIndicator color="#75E6DE" size="large" /><Text style={s.introFooter}>Checking your sign-in…</Text></View></View>;
     }
     const enterApp = (nextRole) => { setRole(nextRole); setTab('Home'); setTabHistory(['Home']); animateEntry('app'); };
-    const entryContent = entryStep === 'welcome' ? (
-      <>
-        <Animated.View style={[s.introGlow, s.introGlowBlue, { transform: [{ scale: introPulse }] }]} />
-        <Animated.View style={[s.introGlow, s.introGlowPink, { transform: [{ translateY: introFloat.interpolate({ inputRange: [0, 1], outputRange: [12, -12] }) }] }]} />
-        <Animated.View style={[s.introContent, { opacity: introOpacity }]}>
-          <View style={s.introBrandRow}><View style={s.introBrandIcon}><Text style={s.introBrandLetter}>C</Text><View style={s.introBrandSpark} /></View><Text style={s.introBrandName}>CAMPUS<Text style={{ color: '#75E6DE' }}>LINK</Text></Text></View>
-          <View style={s.orbitStage}>
-            <Animated.View style={[s.orbitAura, { transform: [{ scale: introPulse }] }]} />
-            <View style={s.orbitRingOuter} /><View style={s.orbitRingInner} />
-            <Animated.View style={[s.orbitDot, s.orbitDotOne, { transform: [{ translateY: introFloat.interpolate({ inputRange: [0, 1], outputRange: [5, -5] }) }] }]} />
-            <Animated.View style={[s.orbitDot, s.orbitDotTwo, { transform: [{ translateY: introFloat.interpolate({ inputRange: [0, 1], outputRange: [-7, 7] }) }] }]} />
-            <View style={s.orbitCore}><Text style={s.orbitCoreText}>C</Text><Text style={s.orbitCoreStar}>✦</Text></View>
-            <View style={[s.orbitNode, s.nodeStudent]}><Text style={s.orbitNodeText}>S</Text></View><View style={[s.orbitNode, s.nodeCampus]}><Text style={s.orbitNodeText}>C</Text></View><View style={[s.orbitNode, s.nodeTalent]}><Text style={s.orbitNodeText}>↗</Text></View>
+    if (entryStep === 'welcome') {
+      return (
+        <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: Math.max(insets.bottom, 14) }]}>
+          <StatusBar barStyle="light-content" backgroundColor="#0B1024" translucent={Platform.OS === 'android'} />
+          <View style={s.introBackdrop}>
+            <View style={s.backdropOrbA} />
+            <View style={s.backdropOrbB} />
+            <View style={s.backdropGrid} />
           </View>
-          <Text style={s.introEyebrow}>FROM CAMPUS TO WHAT'S NEXT</Text>
-          <Text style={s.introTitle}>Your next chapter{ '\n' }starts here.</Text>
-          <Text style={s.introSubtitle}>One campus. Every opportunity.{ '\n' }A clearer path to your future.</Text>
-          <View style={s.introDots}><View style={s.introDotActive} /><View style={s.introDot} /><View style={s.introDot} /></View>
-          <TouchableOpacity style={s.introButton} onPress={() => animateEntry('role')}><Text style={s.introButtonText}>Get started</Text><Text style={s.introButtonArrow}>→</Text></TouchableOpacity>
-          <Text style={s.introFooter}>A smarter way to make the connection.</Text>
-        </Animated.View>
-      </>
-    ) : entryStep === 'role' ? (
+          <Animated.View style={[s.introGlow, s.introGlowBlue, { transform: [{ scale: introPulse }] }]} />
+          <Animated.View style={[s.introGlow, s.introGlowPink, { transform: [{ translateY: introFloat.interpolate({ inputRange: [0, 1], outputRange: [12, -12] }) }] }]} />
+          <Animated.View style={{ flex: 1, opacity: introOpacity }}>
+            {/* Top Bar with Brand & Skip */}
+            <View style={s.welcomeTopBar}>
+              <View style={s.introBrandRow}>
+                <View style={s.introBrandIcon}>
+                  <Text style={s.introBrandLetter}>C</Text>
+                  <View style={s.introBrandSpark} />
+                </View>
+                <Text style={s.introBrandName}>CAMPUS<Text style={{ color: '#75E6DE' }}>LINK</Text></Text>
+              </View>
+              <TouchableOpacity onPress={() => animateEntry('role')} style={s.skipBtn} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Skip onboarding">
+                <Text style={s.skipBtnText}>Skip ›</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Horizontal 3-Slide Carousel */}
+            <ScrollView
+              ref={welcomeScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              bounces={false}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / windowWidth);
+                if (idx >= 0 && idx < ONBOARDING_SLIDES.length) {
+                  setCurrentSlide(idx);
+                }
+              }}
+              scrollEventThrottle={16}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ alignItems: 'center' }}
+            >
+              {ONBOARDING_SLIDES.map((slide, index) => (
+                <View key={slide.id} style={[s.welcomeSlide, { width: windowWidth }]}>
+                  <View style={s.orbitStage}>
+                    <Animated.View style={[s.orbitAura, { transform: [{ scale: introPulse }], backgroundColor: slide.accent, opacity: 0.16 }]} />
+                    <View style={[s.orbitRingOuter, { borderColor: `${slide.accent}55` }]} />
+                    <View style={[s.orbitRingInner, { borderColor: 'rgba(183,139,255,0.36)' }]} />
+                    <Animated.View style={[s.orbitDot, s.orbitDotOne, { backgroundColor: slide.accent, transform: [{ translateY: introFloat.interpolate({ inputRange: [0, 1], outputRange: [5, -5] }) }] }]} />
+                    <Animated.View style={[s.orbitDot, s.orbitDotTwo, { transform: [{ translateY: introFloat.interpolate({ inputRange: [0, 1], outputRange: [-7, 7] }) }] }]} />
+                    <View style={s.orbitCore}>
+                      <Text style={[s.orbitCoreText, index === 1 && { fontSize: 44, lineHeight: 52 }, index === 2 && { fontSize: 40, lineHeight: 48 }]}>{slide.coreIcon}</Text>
+                      <Text style={s.orbitCoreStar}>{slide.coreStar}</Text>
+                    </View>
+                    <View style={[s.orbitNode, s.nodeStudent, { borderColor: `${slide.accent}66` }]}><Text style={s.orbitNodeText}>{slide.nodes[0]}</Text></View>
+                    <View style={[s.orbitNode, s.nodeCampus]}><Text style={s.orbitNodeText}>{slide.nodes[1]}</Text></View>
+                    <View style={[s.orbitNode, s.nodeTalent]}><Text style={s.orbitNodeText}>{slide.nodes[2]}</Text></View>
+                  </View>
+                  <View style={[s.slideTagPill, { borderColor: `${slide.accent}55`, backgroundColor: `${slide.accent}15` }]}>
+                    <Text style={[s.slideTagText, { color: slide.accent }]}>{slide.tag}</Text>
+                  </View>
+                  <Text style={[s.introEyebrow, { color: slide.accent }]}>{slide.eyebrow}</Text>
+                  <Text style={s.introTitle}>{slide.title}</Text>
+                  <Text style={s.introSubtitle}>{slide.subtitle}</Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Bottom Controls */}
+            <View style={s.welcomeBottomControls}>
+              {/* 3 Clickable & Animated Indicator Dots */}
+              <View style={s.introDots}>
+                {ONBOARDING_SLIDES.map((slide, idx) => (
+                  <TouchableOpacity
+                    key={slide.id}
+                    onPress={() => scrollToSlide(idx)}
+                    hitSlop={{ top: 12, bottom: 12, left: 10, right: 10 }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Go to slide ${idx + 1}`}
+                    style={[
+                      s.introDot,
+                      currentSlide === idx && [s.introDotActive, { backgroundColor: ONBOARDING_SLIDES[currentSlide].accent }],
+                    ]}
+                  />
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={s.introButton}
+                onPress={() => {
+                  if (currentSlide < ONBOARDING_SLIDES.length - 1) {
+                    scrollToSlide(currentSlide + 1);
+                  } else {
+                    animateEntry('role');
+                  }
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={s.introButtonText}>{currentSlide === ONBOARDING_SLIDES.length - 1 ? 'Get started' : 'Continue'}</Text>
+                <Text style={s.introButtonArrow}>→</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => animateEntry('role')}
+                style={{ paddingVertical: 6, marginTop: 4 }}
+                activeOpacity={0.7}
+              >
+                <Text style={s.introFooter}>
+                  {currentSlide === ONBOARDING_SLIDES.length - 1 ? 'A smarter way to make the connection.' : 'Skip directly to role selection ›'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      );
+    }
+    const entryContent = entryStep === 'role' ? (
       <Animated.View style={[s.roleIntroContent, { opacity: introOpacity }]}>
         <TouchableOpacity style={s.backButton} onPress={() => animateEntry('welcome')}><Text style={s.backButtonText}>‹  Back</Text></TouchableOpacity>
         <Text style={s.introEyebrow}>LET'S MAKE IT YOURS</Text>
@@ -1936,7 +2078,87 @@ const makeStyles = (C) => StyleSheet.create({
 });
 
 const introStyles = StyleSheet.create({
-  introRoot: { flex: 1, backgroundColor: '#0B1024', overflow: 'hidden' }, introBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0B1024', overflow: 'hidden' }, backdropOrbA: { position: 'absolute', width: 360, height: 360, borderRadius: 180, backgroundColor: '#243B76', opacity: 0.44, top: -155, right: -155 }, backdropOrbB: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: '#5A286F', opacity: 0.23, bottom: -155, left: -140 }, backdropGrid: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: 'rgba(148,174,255,0.035)' }, sessionLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, introScrollContent: { flexGrow: 1 }, introContent: { flexGrow: 1, minHeight: 690, alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 28, paddingVertical: 14 }, introGlow: { position: 'absolute', borderRadius: 999 }, introGlowBlue: { width: 260, height: 260, backgroundColor: '#3F67FF', opacity: 0.10, top: '22%', left: '12%' }, introGlowPink: { width: 220, height: 220, backgroundColor: '#D348CF', opacity: 0.12, bottom: '21%', right: '8%' }, introBrandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 }, introBrandIcon: { width: 36, height: 36, borderRadius: 13, backgroundColor: '#6E62F6', alignItems: 'center', justifyContent: 'center', shadowColor: '#7A6BFF', shadowOpacity: 0.6, shadowRadius: 16, elevation: 7 }, introBrandLetter: { color: C.white, fontSize: 21, fontWeight: '900' }, introBrandSpark: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: '#75E6DE', right: -2, top: 1 }, introBrandName: { color: C.white, letterSpacing: 2.4, fontSize: 11, fontWeight: '900' }, orbitStage: { width: 245, height: 235, alignItems: 'center', justifyContent: 'center', marginVertical: 4 }, orbitAura: { position: 'absolute', width: 152, height: 152, borderRadius: 76, backgroundColor: '#5866FF', opacity: 0.18 }, orbitRingOuter: { position: 'absolute', width: 214, height: 164, borderWidth: 1, borderColor: 'rgba(112,224,231,0.36)', borderRadius: 110, transform: [{ rotate: '-24deg' }] }, orbitRingInner: { position: 'absolute', width: 186, height: 194, borderWidth: 1, borderColor: 'rgba(183,139,255,0.36)', borderRadius: 100, transform: [{ rotate: '31deg' }] }, orbitDot: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: '#75E6DE' }, orbitDotOne: { top: 26, left: 66 }, orbitDotTwo: { bottom: 38, right: 52, backgroundColor: '#C4A5FF' }, orbitCore: { width: 102, height: 102, borderRadius: 34, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], shadowColor: '#55DAD3', shadowOpacity: 0.3, shadowRadius: 24, elevation: 10 }, orbitCoreText: { color: '#6655E8', fontSize: 56, fontWeight: '900', lineHeight: 65 }, orbitCoreStar: { position: 'absolute', color: '#FFB86C', fontSize: 18, right: 11, top: 8 }, orbitNode: { position: 'absolute', width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#202B49', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }, orbitNodeText: { color: C.white, fontSize: 12, fontWeight: '900' }, nodeStudent: { top: 18, right: 36 }, nodeCampus: { bottom: 21, left: 36, backgroundColor: '#163C4A' }, nodeTalent: { top: 95, left: 7, backgroundColor: '#3C2853' }, introEyebrow: { color: '#79E2DB', letterSpacing: 2, fontWeight: '900', fontSize: 9, textAlign: 'center', marginTop: 4 }, introTitle: { color: C.white, fontSize: 34, lineHeight: 39, fontWeight: '900', letterSpacing: -0.8, textAlign: 'center', marginTop: 8 }, introSubtitle: { color: '#B9C4DC', fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 2 }, introDots: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }, introDotActive: { width: 20, height: 5, borderRadius: 3, backgroundColor: '#75E6DE' }, introDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#53607C' }, introButton: { width: '100%', height: 52, borderRadius: 15, backgroundColor: '#6B61F6', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#6B61F6', shadowOpacity: 0.32, shadowRadius: 14 }, introButtonText: { color: C.white, fontSize: 12, fontWeight: '900' }, introButtonArrow: { color: '#94F4EB', fontSize: 18, fontWeight: '800', marginLeft: 9 }, introFooter: { color: '#7E8AA6', fontSize: 9, marginTop: 7, textAlign: 'center' }, authModeRow: { flexDirection: 'row', gap: 8, marginTop: 7, marginBottom: 12 }, authModeTab: { flex: 1, borderWidth: 1, borderColor: 'rgba(180,196,230,0.2)', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, paddingVertical: 10, alignItems: 'center' }, authModeSelected: { borderColor: '#75E6DE', backgroundColor: 'rgba(117,230,222,0.13)' }, authModeText: { color: '#AAB6D0', fontSize: 11, fontWeight: '700' }, authModeTextSelected: { color: '#FFFFFF' }, authLabel: { color: '#EAF0FF', fontSize: 10, fontWeight: '800', marginTop: 7, marginBottom: 5 }, authInput: { minHeight: 44, borderWidth: 1, borderColor: 'rgba(180,196,230,0.25)', borderRadius: 12, paddingHorizontal: 12, color: '#FFFFFF', fontSize: 11, backgroundColor: 'rgba(255,255,255,0.055)' }, authPasswordRow: { minHeight: 44, borderWidth: 1, borderColor: 'rgba(180,196,230,0.25)', borderRadius: 12, paddingRight: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.055)' }, authPasswordInput: { flex: 1, minHeight: 42, borderWidth: 0, backgroundColor: 'transparent', paddingRight: 4 }, passwordVisibilityButton: { minWidth: 48, minHeight: 36, paddingHorizontal: 7, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(117,230,222,0.12)' }, eyeIcon: { width: 22, height: 14, borderWidth: 2, borderColor: '#75E6DE', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, eyePupil: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#75E6DE' }, eyeSlash: { position: 'absolute', width: 24, height: 2, borderRadius: 1, backgroundColor: '#75E6DE', transform: [{ rotate: '-38deg' }] }, collegeSuggestions: { maxHeight: 180, marginTop: 4, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(180,196,230,0.18)', borderRadius: 12, backgroundColor: '#151D36' }, collegeSuggestion: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(180,196,230,0.11)' }, authSuggestionText: { color: '#EAF0FF', fontSize: 10, lineHeight: 14 }, authHint: { color: '#AAB6D0', fontSize: 9, lineHeight: 13, marginTop: 5 }, authError: { color: '#FF9AA2', fontSize: 10, lineHeight: 14, marginTop: 9, marginBottom: 4 }, roleIntroContent: { flexGrow: 1, minHeight: 690, paddingHorizontal: 22, paddingVertical: 16, justifyContent: 'center' }, backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16, marginBottom: 20 }, backButtonText: { color: '#A9B7D2', fontSize: 11, fontWeight: '700' }, roleIntroTitle: { color: C.white, fontSize: 33, lineHeight: 38, fontWeight: '900', letterSpacing: -0.8, marginTop: 9 }, roleIntroSubtitle: { color: '#B9C4DC', fontSize: 11, lineHeight: 17, marginTop: 8, marginBottom: 19 }, roleChoiceCard: { minHeight: 79, borderWidth: 1, borderColor: 'rgba(180,196,230,0.18)', borderRadius: 17, padding: 11, marginBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.045)' }, roleChoiceSelected: { borderColor: '#75E6DE', backgroundColor: 'rgba(117,230,222,0.11)' }, roleChoiceIcon: { width: 42, height: 42, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, roleChoiceEmoji: { fontSize: 19 }, roleChoiceText: { flex: 1 }, roleChoiceName: { color: C.white, fontSize: 12, fontWeight: '800' }, roleChoiceDescription: { color: '#AAB6D0', fontSize: 9, lineHeight: 13, marginTop: 4 }, choiceRadio: { width: 19, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#73819E', alignItems: 'center', justifyContent: 'center' }, choiceRadioSelected: { borderColor: '#75E6DE' }, choiceRadioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#75E6DE' },
+  introRoot: { flex: 1, backgroundColor: '#0B1024', overflow: 'hidden' },
+  introBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: '#0B1024', overflow: 'hidden' },
+  backdropOrbA: { position: 'absolute', width: 360, height: 360, borderRadius: 180, backgroundColor: '#243B76', opacity: 0.44, top: -155, right: -155 },
+  backdropOrbB: { position: 'absolute', width: 300, height: 300, borderRadius: 150, backgroundColor: '#5A286F', opacity: 0.23, bottom: -155, left: -140 },
+  backdropGrid: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: 'rgba(148,174,255,0.035)' },
+  sessionLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  introScrollContent: { flexGrow: 1 },
+  introContent: { flexGrow: 1, minHeight: 690, alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 28, paddingVertical: 14 },
+  introGlow: { position: 'absolute', borderRadius: 999 },
+  introGlowBlue: { width: 260, height: 260, backgroundColor: '#3F67FF', opacity: 0.10, top: '22%', left: '12%' },
+  introGlowPink: { width: 220, height: 220, backgroundColor: '#D348CF', opacity: 0.12, bottom: '21%', right: '8%' },
+  introBrandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  introBrandIcon: { width: 36, height: 36, borderRadius: 13, backgroundColor: '#6E62F6', alignItems: 'center', justifyContent: 'center', shadowColor: '#7A6BFF', shadowOpacity: 0.6, shadowRadius: 16, elevation: 7 },
+  introBrandLetter: { color: C.white, fontSize: 21, fontWeight: '900' },
+  introBrandSpark: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: '#75E6DE', right: -2, top: 1 },
+  introBrandName: { color: C.white, letterSpacing: 2.4, fontSize: 11, fontWeight: '900' },
+  welcomeTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 10, paddingBottom: 6 },
+  skipBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)' },
+  skipBtnText: { color: '#75E6DE', fontSize: 11, fontWeight: '800' },
+  welcomeSlide: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
+  slideTagPill: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4, marginBottom: 6 },
+  slideTagText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  welcomeBottomControls: { paddingHorizontal: 28, paddingBottom: 16, alignItems: 'center' },
+  orbitStage: { width: 245, height: 235, alignItems: 'center', justifyContent: 'center', marginVertical: 4 },
+  orbitAura: { position: 'absolute', width: 152, height: 152, borderRadius: 76, backgroundColor: '#5866FF', opacity: 0.18 },
+  orbitRingOuter: { position: 'absolute', width: 214, height: 164, borderWidth: 1, borderColor: 'rgba(112,224,231,0.36)', borderRadius: 110, transform: [{ rotate: '-24deg' }] },
+  orbitRingInner: { position: 'absolute', width: 186, height: 194, borderWidth: 1, borderColor: 'rgba(183,139,255,0.36)', borderRadius: 100, transform: [{ rotate: '31deg' }] },
+  orbitDot: { position: 'absolute', width: 7, height: 7, borderRadius: 4, backgroundColor: '#75E6DE' },
+  orbitDotOne: { top: 26, left: 66 },
+  orbitDotTwo: { bottom: 38, right: 52, backgroundColor: '#C4A5FF' },
+  orbitCore: { width: 102, height: 102, borderRadius: 34, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], shadowColor: '#55DAD3', shadowOpacity: 0.3, shadowRadius: 24, elevation: 10 },
+  orbitCoreText: { color: '#6655E8', fontSize: 56, fontWeight: '900', lineHeight: 65 },
+  orbitCoreStar: { position: 'absolute', color: '#FFB86C', fontSize: 18, right: 11, top: 8 },
+  orbitNode: { position: 'absolute', width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#202B49', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
+  orbitNodeText: { color: C.white, fontSize: 12, fontWeight: '900' },
+  nodeStudent: { top: 18, right: 36 },
+  nodeCampus: { bottom: 21, left: 36, backgroundColor: '#163C4A' },
+  nodeTalent: { top: 95, left: 7, backgroundColor: '#3C2853' },
+  introEyebrow: { color: '#79E2DB', letterSpacing: 2, fontWeight: '900', fontSize: 9, textAlign: 'center', marginTop: 4 },
+  introTitle: { color: C.white, fontSize: 32, lineHeight: 37, fontWeight: '900', letterSpacing: -0.8, textAlign: 'center', marginTop: 6 },
+  introSubtitle: { color: '#B9C4DC', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 6, paddingHorizontal: 12 },
+  introDots: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 },
+  introDotActive: { width: 26, height: 8, borderRadius: 4, backgroundColor: '#75E6DE' },
+  introDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3E4C6D' },
+  introButton: { width: '100%', height: 52, borderRadius: 15, backgroundColor: '#6B61F6', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#6B61F6', shadowOpacity: 0.32, shadowRadius: 14 },
+  introButtonText: { color: C.white, fontSize: 12, fontWeight: '900' },
+  introButtonArrow: { color: '#94F4EB', fontSize: 18, fontWeight: '800', marginLeft: 9 },
+  introFooter: { color: '#7E8AA6', fontSize: 9, marginTop: 7, textAlign: 'center' },
+  authModeRow: { flexDirection: 'row', gap: 8, marginTop: 7, marginBottom: 12 },
+  authModeTab: { flex: 1, borderWidth: 1, borderColor: 'rgba(180,196,230,0.2)', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  authModeSelected: { borderColor: '#75E6DE', backgroundColor: 'rgba(117,230,222,0.13)' },
+  authModeText: { color: '#AAB6D0', fontSize: 11, fontWeight: '700' },
+  authModeTextSelected: { color: '#FFFFFF' },
+  authLabel: { color: '#EAF0FF', fontSize: 10, fontWeight: '800', marginTop: 7, marginBottom: 5 },
+  authInput: { minHeight: 44, borderWidth: 1, borderColor: 'rgba(180,196,230,0.25)', borderRadius: 12, paddingHorizontal: 12, color: '#FFFFFF', fontSize: 11, backgroundColor: 'rgba(255,255,255,0.055)' },
+  authPasswordRow: { minHeight: 44, borderWidth: 1, borderColor: 'rgba(180,196,230,0.25)', borderRadius: 12, paddingRight: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.055)' },
+  authPasswordInput: { flex: 1, minHeight: 42, borderWidth: 0, backgroundColor: 'transparent', paddingRight: 4 },
+  passwordVisibilityButton: { minWidth: 48, minHeight: 36, paddingHorizontal: 7, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(117,230,222,0.12)' },
+  eyeIcon: { width: 22, height: 14, borderWidth: 2, borderColor: '#75E6DE', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  eyePupil: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#75E6DE' },
+  eyeSlash: { position: 'absolute', width: 24, height: 2, borderRadius: 1, backgroundColor: '#75E6DE', transform: [{ rotate: '-38deg' }] },
+  collegeSuggestions: { maxHeight: 180, marginTop: 4, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(180,196,230,0.18)', borderRadius: 12, backgroundColor: '#151D36' },
+  collegeSuggestion: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(180,196,230,0.11)' },
+  authSuggestionText: { color: '#EAF0FF', fontSize: 10, lineHeight: 14 },
+  authHint: { color: '#AAB6D0', fontSize: 9, lineHeight: 13, marginTop: 5 },
+  authError: { color: '#FF9AA2', fontSize: 10, lineHeight: 14, marginTop: 9, marginBottom: 4 },
+  roleIntroContent: { flexGrow: 1, minHeight: 690, paddingHorizontal: 22, paddingVertical: 16, justifyContent: 'center' },
+  backButton: { alignSelf: 'flex-start', paddingVertical: 8, paddingRight: 16, marginBottom: 20 },
+  backButtonText: { color: '#A9B7D2', fontSize: 11, fontWeight: '700' },
+  roleIntroTitle: { color: C.white, fontSize: 33, lineHeight: 38, fontWeight: '900', letterSpacing: -0.8, marginTop: 9 },
+  roleIntroSubtitle: { color: '#B9C4DC', fontSize: 11, lineHeight: 17, marginTop: 8, marginBottom: 19 },
+  roleChoiceCard: { minHeight: 79, borderWidth: 1, borderColor: 'rgba(180,196,230,0.18)', borderRadius: 17, padding: 11, marginBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.045)' },
+  roleChoiceSelected: { borderColor: '#75E6DE', backgroundColor: 'rgba(117,230,222,0.11)' },
+  roleChoiceIcon: { width: 42, height: 42, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  roleChoiceEmoji: { fontSize: 19 },
+  roleChoiceText: { flex: 1 },
+  roleChoiceName: { color: C.white, fontSize: 12, fontWeight: '800' },
+  roleChoiceDescription: { color: '#AAB6D0', fontSize: 9, lineHeight: 13, marginTop: 4 },
+  choiceRadio: { width: 19, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#73819E', alignItems: 'center', justifyContent: 'center' },
+  choiceRadioSelected: { borderColor: '#75E6DE' },
+  choiceRadioDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#75E6DE' },
   autoLoginRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, marginBottom: 8, paddingVertical: 4 },
   checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: '#75E6DE', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' },
   checkboxChecked: { backgroundColor: '#75E6DE' },
