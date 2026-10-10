@@ -29,7 +29,28 @@ const STORE_DIR = process.env.CAMPUSLINK_DATA_DIR || path.join(__dirname, 'data'
 const STORE_FILE = path.join(STORE_DIR, 'students.json');
 const SESSION_FILE = path.join(STORE_DIR, 'sessions.json');
 const RESET_TOKENS_FILE = path.join(STORE_DIR, 'reset_tokens.json');
+const APPLICATIONS_FILE = path.join(STORE_DIR, 'applications.json');
+const JOBS_FILE = path.join(STORE_DIR, 'jobs.json');
+const DRIVES_FILE = path.join(STORE_DIR, 'drives.json');
 const DIST_DIR = path.join(__dirname, '..', 'dist');
+
+async function readJsonFile(filePath, defaultValue = []) {
+  await fs.mkdir(STORE_DIR, { recursive: true });
+  try {
+    const content = await fs.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed) ? parsed : defaultValue;
+  } catch (error) {
+    return defaultValue;
+  }
+}
+
+async function writeJsonFile(filePath, data) {
+  await fs.mkdir(STORE_DIR, { recursive: true });
+  const tempFile = `${filePath}.${process.pid}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(data, null, 2), 'utf8');
+  await fs.rename(tempFile, filePath);
+}
 
 const sessions = new Map();
 const resetTokens = new Map();
@@ -154,6 +175,9 @@ function json(res, status, data) {
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   });
   res.end(JSON.stringify(data));
 }
@@ -522,6 +546,15 @@ function renderInvalidResetPage() {
 }
 
 async function handle(req, res) {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, PATCH, DELETE',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    });
+    return res.end();
+  }
+
   const parsedUrl = new URL(req.url, 'http://localhost');
 
   if (req.method === 'GET' && parsedUrl.pathname === '/health') return json(res, 200, { ok: true });
@@ -725,6 +758,102 @@ async function handle(req, res) {
       await persistSessions();
     }
     return json(res, 200, { ok: true });
+  }
+
+  // --- Students Roster for Recruiters and Placement Officers ---
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/students') {
+    const users = await readUsers();
+    const students = users
+      .filter((u) => !u.role || u.role === 'Student')
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        college: u.college || 'College',
+        degree: u.degree || 'B.Tech',
+        major: u.major || 'Computer Science & Engineering',
+        year: u.year || 'Final year · 2026',
+        cgpa: u.cgpa || '8.2',
+        skills: Array.isArray(u.skills) && u.skills.length ? u.skills : ['React', 'Python', 'SQL', 'Communication', 'Problem Solving'],
+        projects: Array.isArray(u.projects) && u.projects.length ? u.projects : ['Campus placement portal', 'Data analytics dashboard'],
+        certifications: Array.isArray(u.certifications) ? u.certifications : ['Full Stack Development'],
+        internships: Array.isArray(u.internships) ? u.internships : ['Summer Intern · 2 months'],
+        readiness: u.readiness || 78,
+        aptitude: u.aptitude || '78/100',
+      }));
+    return json(res, 200, { students });
+  }
+
+  // --- Applications API ---
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/applications') {
+    const apps = await readJsonFile(APPLICATIONS_FILE, []);
+    return json(res, 200, { applications: apps });
+  }
+
+  if (req.method === 'POST' && parsedUrl.pathname === '/api/applications') {
+    const data = await bodyJson(req);
+    const apps = await readJsonFile(APPLICATIONS_FILE, []);
+    const existingIndex = apps.findIndex((a) => a.studentId === data.studentId && a.jobId === data.jobId);
+    if (existingIndex >= 0) {
+      return json(res, 200, { application: apps[existingIndex], alreadyApplied: true });
+    }
+    const newApp = {
+      id: data.id || `a-${Date.now()}-${data.studentId || 'app'}`,
+      studentId: data.studentId,
+      jobId: data.jobId,
+      candidateName: data.candidateName,
+      jobTitle: data.jobTitle,
+      company: data.company,
+      stage: data.stage || 'Applied',
+      updated: 'Just now',
+      createdAt: new Date().toISOString(),
+    };
+    apps.unshift(newApp);
+    await writeJsonFile(APPLICATIONS_FILE, apps);
+    return json(res, 201, { application: newApp });
+  }
+
+  if (req.method === 'POST' && parsedUrl.pathname === '/api/applications/stage') {
+    const data = await bodyJson(req);
+    const apps = await readJsonFile(APPLICATIONS_FILE, []);
+    const idx = apps.findIndex((a) => a.id === data.id);
+    if (idx >= 0) {
+      apps[idx].stage = data.stage;
+      apps[idx].updated = 'Just now';
+      if (data.stage === 'Declined') {
+        apps[idx].dropOff = data.dropOff || 'Candidate withdrew or process concluded';
+      }
+      await writeJsonFile(APPLICATIONS_FILE, apps);
+      return json(res, 200, { application: apps[idx] });
+    }
+    return json(res, 404, { error: 'Application not found.' });
+  }
+
+  // --- Jobs API ---
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/jobs') {
+    const jobs = await readJsonFile(JOBS_FILE, []);
+    return json(res, 200, { jobs });
+  }
+
+  if (req.method === 'POST' && parsedUrl.pathname === '/api/jobs') {
+    const data = await bodyJson(req);
+    const jobs = await readJsonFile(JOBS_FILE, []);
+    jobs.unshift(data);
+    await writeJsonFile(JOBS_FILE, jobs);
+    return json(res, 201, { job: data });
+  }
+
+  // --- Drives API ---
+  if (req.method === 'GET' && parsedUrl.pathname === '/api/drives') {
+    const drives = await readJsonFile(DRIVES_FILE, []);
+    return json(res, 200, { drives });
+  }
+
+  if (req.method === 'POST' && parsedUrl.pathname === '/api/drives') {
+    const data = await bodyJson(req);
+    const drives = await readJsonFile(DRIVES_FILE, []);
+    drives.push(data);
+    await writeJsonFile(DRIVES_FILE, drives);
+    return json(res, 201, { drive: data });
   }
 
   if (req.method === 'GET' && !parsedUrl.pathname.startsWith('/api/')) {

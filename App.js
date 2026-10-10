@@ -97,6 +97,10 @@ const AUTH_USER_KEY = 'campuslink.authUser';
 const AUTH_PROFILE_KEY = 'campuslink.authProfile';
 const AUTO_LOGIN_KEY = 'campuslink.autoLogin';
 const SAVED_EMAIL_KEY = 'campuslink.savedEmail';
+const SHARED_APPS_KEY = 'campuslink.sharedApps';
+const SHARED_STUDENTS_KEY = 'campuslink.sharedStudents';
+const SHARED_JOBS_KEY = 'campuslink.sharedJobs';
+const SHARED_DRIVES_KEY = 'campuslink.sharedDrives';
 
 async function safeStorageGet(key) {
   try {
@@ -302,6 +306,69 @@ function AppContent() {
           setAuthForm((current) => ({ ...current, email: current.email || savedEmail }));
         }
 
+        // 1. Restore local persistent applications
+        const cachedAppsStr = await safeStorageGet(SHARED_APPS_KEY);
+        if (cachedAppsStr && active) {
+          try {
+            const parsedApps = JSON.parse(cachedAppsStr);
+            if (Array.isArray(parsedApps) && parsedApps.length) {
+              setApplications((current) => {
+                const map = new Map(current.map((a) => [a.id, a]));
+                parsedApps.forEach((a) => map.set(a.id, a));
+                return [...map.values()];
+              });
+            }
+          } catch {}
+        }
+
+        // 2. Restore local persistent students
+        const cachedStudentsStr = await safeStorageGet(SHARED_STUDENTS_KEY);
+        if (cachedStudentsStr && active) {
+          try {
+            const parsedStudents = JSON.parse(cachedStudentsStr);
+            if (Array.isArray(parsedStudents) && parsedStudents.length) {
+              setStudents((current) => {
+                const map = new Map(current.map((p) => [p.id, p]));
+                parsedStudents.forEach((p) => map.set(p.id, p));
+                return [...map.values()];
+              });
+            }
+          } catch {}
+        }
+
+        // 3. Background sync with server for students & applications
+        if (API_BASE_URL) {
+          fetch(`${API_BASE_URL}/api/applications`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (active && Array.isArray(data.applications) && data.applications.length) {
+                setApplications((current) => {
+                  const map = new Map(current.map((a) => [a.id, a]));
+                  data.applications.forEach((a) => map.set(a.id, a));
+                  const merged = [...map.values()];
+                  safeStorageSet(SHARED_APPS_KEY, JSON.stringify(merged));
+                  return merged;
+                });
+              }
+            })
+            .catch(() => {});
+
+          fetch(`${API_BASE_URL}/api/students`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (active && Array.isArray(data.students) && data.students.length) {
+                setStudents((current) => {
+                  const map = new Map(current.map((p) => [p.id, p]));
+                  data.students.forEach((p) => map.set(p.id, p));
+                  const merged = [...map.values()];
+                  safeStorageSet(SHARED_STUDENTS_KEY, JSON.stringify(merged));
+                  return merged;
+                });
+              }
+            })
+            .catch(() => {});
+        }
+
         const autoLoginPref = await safeStorageGet(AUTO_LOGIN_KEY);
         if (autoLoginPref === 'false') {
           if (active) setEntryStep('welcome');
@@ -330,7 +397,11 @@ function AppContent() {
           setRole(userRole);
           if (userRole === 'Student') {
             const accountStudent = cachedProfile || studentFromAccount(cachedUser);
-            setStudents((current) => [...current.filter((person) => person.id !== cachedUser.id), accountStudent]);
+            setStudents((current) => {
+              const next = [...current.filter((person) => person.id !== cachedUser.id), accountStudent];
+              safeStorageSet(SHARED_STUDENTS_KEY, JSON.stringify(next));
+              return next;
+            });
             setStudentId(cachedUser.id);
           }
           setEntryStep('app');
@@ -685,7 +756,11 @@ function AppContent() {
           setRole(userRole);
           if (userRole === 'Student') {
             const accountStudent = studentFromAccount(userAccount);
-            setStudents((current) => [...current.filter((person) => person.id !== userAccount.id), accountStudent]);
+            setStudents((current) => {
+              const next = [...current.filter((person) => person.id !== userAccount.id), accountStudent];
+              safeStorageSet(SHARED_STUDENTS_KEY, JSON.stringify(next));
+              return next;
+            });
             setStudentId(userAccount.id);
           }
           await safeStorageSet(AUTH_USER_KEY, JSON.stringify(userAccount));
@@ -725,7 +800,11 @@ function AppContent() {
 
       if (userRole === 'Student') {
         const accountStudent = studentFromAccount(enhancedAccount);
-        setStudents((current) => [...current.filter((person) => person.id !== account.id), accountStudent]);
+        setStudents((current) => {
+          const next = [...current.filter((person) => person.id !== account.id), accountStudent];
+          safeStorageSet(SHARED_STUDENTS_KEY, JSON.stringify(next));
+          return next;
+        });
         setStudentId(account.id);
       }
 
@@ -902,22 +981,50 @@ function AppContent() {
   };
 
   const changeStage = (application, stage) => {
-    setApplications((current) => current.map((item) => item.id === application.id ? { ...item, stage, updated: 'Just now', dropOff: stage === 'Declined' ? 'Offer declined or process withdrawn' : item.dropOff } : item));
+    const nextApps = applications.map((item) => item.id === application.id ? { ...item, stage, updated: 'Just now', dropOff: stage === 'Declined' ? 'Offer declined or process withdrawn' : item.dropOff } : item);
+    setApplications(nextApps);
+    safeStorageSet(SHARED_APPS_KEY, JSON.stringify(nextApps));
     const targetStudent = students.find((item) => item.id === application.studentId);
     notify(`${application.jobTitle} application moved to ${stage}.`, [targetStudent?.id, 'Placement', 'Recruiter'].filter(Boolean), `Placement status: ${stage}`);
+    if (API_BASE_URL) {
+      fetch(`${API_BASE_URL}/api/applications/stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: application.id, stage }),
+      }).catch(() => {});
+    }
   };
   const addToPipeline = (person, job, stage = 'Shortlisted') => {
     const existing = applications.find((item) => item.studentId === person.id && item.jobId === job.id);
     if (existing) { changeStage(existing, stage); return; }
     const application = { id: `a-${Date.now()}-${person.id}`, studentId: person.id, jobId: job.id, candidateName: person.name, jobTitle: job.title, company: job.company, stage, updated: 'Just now' };
-    setApplications((current) => [application, ...current]);
+    const nextApps = [application, ...applications];
+    setApplications(nextApps);
+    safeStorageSet(SHARED_APPS_KEY, JSON.stringify(nextApps));
     notify(`${person.name} was added to the ${job.title} pipeline as ${stage}.`, [person.id, 'Placement', 'Recruiter'], `You are ${stage.toLowerCase()}`);
+    if (API_BASE_URL) {
+      fetch(`${API_BASE_URL}/api/applications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(application),
+      }).catch(() => {});
+    }
   };
   const applyToJob = (job) => {
     if (applications.some((item) => item.studentId === student.id && item.jobId === job.id)) { notify('You already have an application for this role.', student.id, 'Application status'); return; }
     const application = { id: `a-${Date.now()}-${student.id}`, studentId: student.id, jobId: job.id, candidateName: student.name, jobTitle: job.title, company: job.company, stage: 'Applied', updated: 'Just now' };
-    setApplications((current) => [application, ...current]); setModal('');
+    const nextApps = [application, ...applications.filter((a) => a.id !== application.id)];
+    setApplications(nextApps);
+    safeStorageSet(SHARED_APPS_KEY, JSON.stringify(nextApps));
+    setModal('');
     notify(`Your application for ${job.title} has been shared with the placement team.`, [student.id, 'Placement', 'Recruiter'], 'Application submitted');
+    if (API_BASE_URL) {
+      fetch(`${API_BASE_URL}/api/applications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(application),
+      }).catch(() => {});
+    }
   };
   const updateStudentField = (key, raw) => {
     const value = key === 'skills' || key === 'projects' || key === 'certifications' || key === 'internships'
@@ -1003,8 +1110,35 @@ function AppContent() {
         {fit.missing.slice(0, 2).map((skill) => <View style={[s.skillTag3D, s.skillMissing3D]} key={skill}><Text style={s.skillMissingText}>＋ {skill}</Text></View>)}
       </View>
       <View style={s.rowBetween}>
-        <Text style={s.microcopy}>{application ? `Pipeline · ${application.stage}` : 'Profile preview · confidential'}</Text>
-        {mode === 'Recruiter' && <TouchableOpacity style={s.smallButton} onPress={() => addToPipeline(person, job)} activeOpacity={0.85}><Text style={s.smallButtonText}>{application ? 'Update pipeline' : '✦ Shortlist'}</Text></TouchableOpacity>}
+        {application ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ backgroundColor: '#ECFDF5', borderColor: '#10B981', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+              <Text style={{ color: '#047857', fontSize: 10, fontWeight: '800' }}>✓ APPLIED · {application.stage}</Text>
+            </View>
+          </View>
+        ) : (
+          <Text style={s.microcopy}>Profile preview · confidential</Text>
+        )}
+        {mode === 'Recruiter' && (
+          <TouchableOpacity
+            style={s.smallButton}
+            onPress={() => application ? goToTab('Pipeline') : addToPipeline(person, job)}
+            activeOpacity={0.85}
+          >
+            <Text style={s.smallButtonText}>
+              {application ? 'Review in Pipeline →' : '✦ Shortlist'}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {mode === 'Placement' && application && (
+          <TouchableOpacity
+            style={s.buttonSoft}
+            onPress={() => goToTab('Pipeline')}
+            activeOpacity={0.85}
+          >
+            <Text style={s.buttonSoftText}>In Pipeline →</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>;
   };
