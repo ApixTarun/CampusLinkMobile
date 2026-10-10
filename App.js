@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   ActivityIndicator,
+  BackHandler,
   Easing,
   KeyboardAvoidingView,
   Linking,
@@ -13,6 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -327,6 +329,144 @@ function AppContent() {
     pulse.start(); float.start();
     return () => { pulse.stop(); float.stop(); introOpacity.stopAnimation(); };
   }, [entryStep, introFloat, introOpacity, introPulse]);
+
+  const [tabHistory, setTabHistory] = useState(['Home']);
+  const lastBackPressRef = useRef(0);
+  const stateRef = useRef({
+    modal: '',
+    showCollegeList: false,
+    entryStep: 'loading',
+    authMode: 'register',
+    tab: 'Home',
+    tabHistory: ['Home'],
+  });
+
+  useEffect(() => {
+    stateRef.current = {
+      modal,
+      showCollegeList,
+      entryStep,
+      authMode,
+      tab,
+      tabHistory,
+    };
+  }, [modal, showCollegeList, entryStep, authMode, tab, tabHistory]);
+
+  const goToTab = (nextTab) => {
+    if (nextTab === tab) return;
+    setTabHistory((current) => [...current, nextTab]);
+    setTab(nextTab);
+    setQuery('');
+    if (nextTab === 'Inbox') {
+      setInbox((current) => current.map((item) => ({ ...item, unread: false })));
+    }
+  };
+
+  const handleBack = () => {
+    const sState = stateRef.current;
+    if (sState.modal) {
+      setModal('');
+      return true;
+    }
+    if (sState.showCollegeList) {
+      setShowCollegeList(false);
+      return true;
+    }
+    if (sState.entryStep !== 'app') {
+      if (sState.authMode === 'forgot') {
+        setAuthMode('login');
+        setAuthError('');
+        setAuthSuccess('');
+        return true;
+      }
+      if (sState.entryStep === 'auth') {
+        animateEntry('role');
+        return true;
+      }
+      if (sState.entryStep === 'role') {
+        animateEntry('welcome');
+        return true;
+      }
+      return false;
+    }
+    if (sState.tab !== 'Home') {
+      const history = sState.tabHistory;
+      if (history.length > 1) {
+        const next = history.slice(0, -1);
+        const prevTab = next[next.length - 1] || 'Home';
+        setTabHistory(next);
+        setTab(prevTab);
+      } else {
+        setTab('Home');
+        setTabHistory(['Home']);
+      }
+      return true;
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const onHardwareBackPress = () => {
+      const sState = stateRef.current;
+      if (sState.modal) {
+        setModal('');
+        return true;
+      }
+      if (sState.showCollegeList) {
+        setShowCollegeList(false);
+        return true;
+      }
+      if (sState.entryStep !== 'app') {
+        if (sState.authMode === 'forgot') {
+          setAuthMode('login');
+          setAuthError('');
+          setAuthSuccess('');
+          return true;
+        }
+        if (sState.entryStep === 'auth') {
+          animateEntry('role');
+          return true;
+        }
+        if (sState.entryStep === 'role') {
+          animateEntry('welcome');
+          return true;
+        }
+        return false;
+      }
+      if (sState.tab !== 'Home') {
+        const history = sState.tabHistory;
+        if (history.length > 1) {
+          const next = history.slice(0, -1);
+          const prevTab = next[next.length - 1] || 'Home';
+          setTabHistory(next);
+          setTab(prevTab);
+        } else {
+          setTab('Home');
+          setTabHistory(['Home']);
+        }
+        return true;
+      }
+
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPressRef.current = now;
+      if (ToastAndroid && ToastAndroid.show) {
+        ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+      } else {
+        setNotice('Press back again to exit');
+        setTimeout(() => setNotice(''), 2000);
+      }
+      return true;
+    };
+
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onHardwareBackPress);
+    return () => backSub.remove();
+  }, []);
 
   const student = students.find((item) => item.id === studentId) || students[0];
   const selectedJob = jobs.find((job) => job.id === selectedJobId) || jobs[0];
@@ -728,17 +868,17 @@ function AppContent() {
       return <>
         <Hero eyebrow="STUDENT SPACE" title={`Hi, ${student.name.split(' ')[0]}.`} subtitle="Explore roles, understand your fit, and close skill gaps at your pace." />
         <View style={s.metricRow}><Metric value={String(jobs.length)} label="Open roles" /><Metric value={String(studentApps.length)} label="Applications" /><Metric value={String(student.readiness)} label="Readiness" last /></View>
-        <Section title="Your strongest match" action="Explore jobs" onPress={() => setTab('Jobs')} />{best && jobCard(best, true)}
-        <Section title="Skill gap to work on" action="View profile" onPress={() => setTab('Profile')} />
+        <Section title="Your strongest match" action="Explore jobs" onPress={() => goToTab('Jobs')} />{best && jobCard(best, true)}
+        <Section title="Skill gap to work on" action="View profile" onPress={() => goToTab('Profile')} />
         {best && <View style={s.card}><Text style={s.cardTitle}>{best.title}</Text><Text style={s.muted}>Matched skills</Text><View style={s.tagWrap}>{skillTags(evaluate(student, best).matched)}</View><Text style={s.muted}>Skills to build next</Text><View style={s.tagWrap}>{skillTags(evaluate(student, best).missing, true)}</View></View>}
-        <Section title="Placement updates" action="Open inbox" onPress={() => setTab('Inbox')} />{visibleInbox.slice(0, 2).map((item) => <MessageCard key={item.id} item={item} />)}
+        <Section title="Placement updates" action="Open inbox" onPress={() => goToTab('Inbox')} />{visibleInbox.slice(0, 2).map((item) => <MessageCard key={item.id} item={item} />)}
       </>;
     }
     if (role === 'Recruiter') {
       return <><Hero eyebrow="RECRUITER WORKSPACE" title="Find people by fit." subtitle="Post a job description, inspect explainable matches, then decide who to meet." action="＋ Add a job description" onAction={openJobForm} />
         <View style={s.metricRow}><Metric value={String(jobs.length)} label="Open roles" /><Metric value={String(applications.filter((item) => item.stage !== 'Declined').length)} label="In pipeline" /><Metric value={String(drives.filter((item) => item.kind === 'Interview').length)} label="Interview events" last /></View>
-        <Section title="Choose a role to match" action="Post JD" onPress={openJobForm} />{jobs.map((job) => <TouchableOpacity key={job.id} onPress={() => { setSelectedJobId(job.id); setTab('Jobs'); }} style={s.selectJob}><View style={s.grow}><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.company} · {job.requiredSkills.length} parsed skills</Text></View><Text style={s.link}>Matches ›</Text></TouchableOpacity>)}
-        <Section title="Best fit candidates" action="See ranked list" onPress={() => setTab('Jobs')} />{rankedCandidates.slice(0, 2).map(({ student: person }) => candidateCard(person, selectedJob, 'Recruiter'))}
+        <Section title="Choose a role to match" action="Post JD" onPress={openJobForm} />{jobs.map((job) => <TouchableOpacity key={job.id} onPress={() => { setSelectedJobId(job.id); goToTab('Jobs'); }} style={s.selectJob}><View style={s.grow}><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.company} · {job.requiredSkills.length} parsed skills</Text></View><Text style={s.link}>Matches ›</Text></TouchableOpacity>)}
+        <Section title="Best fit candidates" action="See ranked list" onPress={() => goToTab('Jobs')} />{rankedCandidates.slice(0, 2).map(({ student: person }) => candidateCard(person, selectedJob, 'Recruiter'))}
         <InfoBox title="Human review stays in control" body="CampusLink ranks and explains profile fit. Recruiters and placement officers make every shortlist and selection decision." />
       </>;
     }
@@ -746,10 +886,10 @@ function AppContent() {
     const conflictCount = drives.reduce((count, event, index) => count + drives.slice(index + 1).filter((other) => overlap(event, other)).length, 0);
     return <><Hero eyebrow="PLACEMENT OFFICE · 2026–27" title="Placement command centre." subtitle="Coordinate drives, support students early, and track outcomes." action="＋ Schedule a drive" onAction={openDriveForm} />
       <View style={s.metricRow}><Metric value={String(students.length)} label="Profiles" /><Metric value={String(drives.filter((item) => item.kind === 'Placement drive').length)} label="Drives" /><Metric value={`${applications.filter((item) => ['Offer', 'Documents', 'Accepted', 'Joined'].includes(item.stage)).length}`} label="Offers+" last /></View>
-      {conflictCount > 0 && <TouchableOpacity style={s.conflictBanner} onPress={() => setTab('Drives')}><Text style={s.conflictIcon}>!</Text><View style={s.grow}><Text style={s.cardTitle}>{conflictCount} schedule clash{conflictCount > 1 ? 'es' : ''} to resolve</Text><Text style={s.muted}>Review the drive calendar before confirming events.</Text></View><Text style={s.link}>Review ›</Text></TouchableOpacity>}
-      <Section title="Students who may need support" action="View analytics" onPress={() => setTab('Profile')} />{atRisk.map((person) => <View style={s.riskRow} key={person.id}><View style={s.avatar}><Text style={s.avatarText}>{initials(person.name)}</Text></View><View style={s.grow}><Text style={s.cardTitle}>{person.name}</Text><Text style={s.muted}>Readiness {person.readiness}/100 · {selectedJob ? `${evaluate(person, selectedJob).missing.length} gaps for ${selectedJob.title}` : 'Complete profile review'}</Text></View><TouchableOpacity style={s.smallButton} onPress={() => { setSupportPlans((current) => ({ ...current, [person.id]: true })); notify(`A training follow-up was assigned for ${person.name}.`, 'Placement', 'Student support follow-up'); }}><Text style={s.smallButtonText}>{supportPlans[person.id] ? 'Assigned ✓' : 'Support plan'}</Text></TouchableOpacity></View>)}
-      <Section title="Placement funnel" action="Open pipeline" onPress={() => setTab('Pipeline')} />{funnelCard(applications)}
-      <Section title="Recent campus updates" action="Inbox" onPress={() => setTab('Inbox')} />{visibleInbox.slice(0, 2).map((item) => <MessageCard key={item.id} item={item} />)}
+      {conflictCount > 0 && <TouchableOpacity style={s.conflictBanner} onPress={() => goToTab('Drives')}><Text style={s.conflictIcon}>!</Text><View style={s.grow}><Text style={s.cardTitle}>{conflictCount} schedule clash{conflictCount > 1 ? 'es' : ''} to resolve</Text><Text style={s.muted}>Review the drive calendar before confirming events.</Text></View><Text style={s.link}>Review ›</Text></TouchableOpacity>}
+      <Section title="Students who may need support" action="View analytics" onPress={() => goToTab('Profile')} />{atRisk.map((person) => <View style={s.riskRow} key={person.id}><View style={s.avatar}><Text style={s.avatarText}>{initials(person.name)}</Text></View><View style={s.grow}><Text style={s.cardTitle}>{person.name}</Text><Text style={s.muted}>Readiness {person.readiness}/100 · {selectedJob ? `${evaluate(person, selectedJob).missing.length} gaps for ${selectedJob.title}` : 'Complete profile review'}</Text></View><TouchableOpacity style={s.smallButton} onPress={() => { setSupportPlans((current) => ({ ...current, [person.id]: true })); notify(`A training follow-up was assigned for ${person.name}.`, 'Placement', 'Student support follow-up'); }}><Text style={s.smallButtonText}>{supportPlans[person.id] ? 'Assigned ✓' : 'Support plan'}</Text></TouchableOpacity></View>)}
+      <Section title="Placement funnel" action="Open pipeline" onPress={() => goToTab('Pipeline')} />{funnelCard(applications)}
+      <Section title="Recent campus updates" action="Inbox" onPress={() => goToTab('Inbox')} />{visibleInbox.slice(0, 2).map((item) => <MessageCard key={item.id} item={item} />)}
     </>;
   };
 
@@ -837,7 +977,7 @@ function AppContent() {
         <Section title="Fairness and scoring policy" />
         <InfoBox title="Scoring policy" body="Fit score uses skills (65%), qualification (20%), experience (10%), and readiness (5%). Name and contact information are not scoring inputs. Every candidate remains reviewable; score alone never rejects a person." />
         <Section title="Your active jobs" action="＋ Post new JD" onPress={openJobForm} />
-        {jobs.filter((job) => !authUser || !authUser.company || job.company.toLowerCase() === authUser.company.toLowerCase() || job.createdBy === 'Recruiter' || job.createdBy === 'CampusLink sample').map((job) => <TouchableOpacity key={job.id} style={s.selectJob} onPress={() => { setSelectedJobId(job.id); setTab('Jobs'); }}><View style={s.grow}><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.company} · {job.requiredSkills.length} required skills</Text></View><Text style={s.link}>Matches ›</Text></TouchableOpacity>)}
+        {jobs.filter((job) => !authUser || !authUser.company || job.company.toLowerCase() === authUser.company.toLowerCase() || job.createdBy === 'Recruiter' || job.createdBy === 'CampusLink sample').map((job) => <TouchableOpacity key={job.id} style={s.selectJob} onPress={() => { setSelectedJobId(job.id); goToTab('Jobs'); }}><View style={s.grow}><Text style={s.cardTitle}>{job.title}</Text><Text style={s.muted}>{job.company} · {job.requiredSkills.length} required skills</Text></View><Text style={s.link}>Matches ›</Text></TouchableOpacity>)}
       </>;
     }
     const placed = applications.filter((item) => item.stage === 'Joined').length;
@@ -880,7 +1020,7 @@ function AppContent() {
     const fit = evaluate(person, selectedJob);
     const existing = applications.some((item) => item.studentId === person.id && item.jobId === selectedJob.id);
     return <Modal visible={modal === 'jobDetails'} transparent animationType="slide" onRequestClose={() => setModal('')}>
-      <View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView keyboardShouldPersistTaps="handled"><View style={s.rowBetween}><Text style={s.modalTitle}>{selectedJob.title}</Text><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View><Text style={s.overline}>{selectedJob.company} · {selectedJob.location}</Text><Text style={s.body}>{selectedJob.description}</Text>
+      <View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView keyboardShouldPersistTaps="handled"><View style={s.rowBetween}><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><TouchableOpacity style={s.modalBackBtn} onPress={() => setModal('')}><Text style={s.modalBackText}>‹ Back</Text></TouchableOpacity><Text style={s.modalTitle} numberOfLines={1}>{selectedJob.title}</Text></View><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View><Text style={s.overline}>{selectedJob.company} · {selectedJob.location}</Text><Text style={s.body}>{selectedJob.description}</Text>
         {role === 'Student' ? <>
           <View style={s.bigScore}><Text style={s.bigScoreValue}>{fit.score}%</Text><Text style={s.bigScoreLabel}>explainable fit score</Text></View>
           <Text style={s.sectionTitle}>Skills that match ({fit.matched.length})</Text><View style={s.tagWrap}>{fit.matched.length ? skillTags(fit.matched) : <Text style={s.muted}>No listed skills match yet.</Text>}</View>
@@ -899,7 +1039,7 @@ function AppContent() {
 
   const formModal = () => <Modal visible={['job', 'drive', 'profile'].includes(modal)} transparent animationType="slide" onRequestClose={() => setModal('')}>
     <KeyboardAvoidingView style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><View style={s.modalCard}>
-      <View style={s.rowBetween}><Text style={s.modalTitle}>{modal === 'job' ? 'Post a job description' : modal === 'drive' ? 'Schedule campus event' : 'Edit student profile'}</Text><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View>
+      <View style={s.rowBetween}><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><TouchableOpacity style={s.modalBackBtn} onPress={() => setModal('')}><Text style={s.modalBackText}>‹ Back</Text></TouchableOpacity><Text style={s.modalTitle} numberOfLines={1}>{modal === 'job' ? 'Post a job description' : modal === 'drive' ? 'Schedule campus event' : 'Edit student profile'}</Text></View><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View>
       <ScrollView keyboardShouldPersistTaps="handled">
         {modal === 'job' && <>
           <Field label="Company" value={form.company} onChange={(x) => setField('company', x)} placeholder="e.g. Northstar Labs" />
@@ -941,12 +1081,12 @@ function AppContent() {
 
   const candidateModal = () => {
     const candidate = students.find((item) => item.id === candidateDetailId) || student;
-    return <Modal visible={modal === 'candidate'} transparent animationType="fade" onRequestClose={() => setModal('')}><View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView><View style={s.rowBetween}><Text style={s.modalTitle}>{candidate.name}</Text><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View><Text style={s.muted}>{candidate.degree} · {candidate.major} · {candidate.year}</Text><ProfileList title="Academic and readiness" values={[`CGPA ${candidate.cgpa}`, `Aptitude ${candidate.aptitude}`, `Readiness ${candidate.readiness}/100`]} /><ProfileList title="Skills" values={candidate.skills} /><ProfileList title="Projects" values={candidate.projects} /><ProfileList title="Certifications" values={candidate.certifications} /><ProfileList title="Internships" values={candidate.internships} /><InfoBox title="Privacy" body="Contact details are not collected or shown in this prototype. Use candidate information only for placement evaluation." /><TouchableOpacity style={s.button} onPress={() => setModal('')}><Text style={s.buttonText}>Close profile</Text></TouchableOpacity></ScrollView></View></View></Modal>;
+    return <Modal visible={modal === 'candidate'} transparent animationType="fade" onRequestClose={() => setModal('')}><View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView><View style={s.rowBetween}><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><TouchableOpacity style={s.modalBackBtn} onPress={() => setModal('')}><Text style={s.modalBackText}>‹ Back</Text></TouchableOpacity><Text style={s.modalTitle} numberOfLines={1}>{candidate.name}</Text></View><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View><Text style={s.muted}>{candidate.degree} · {candidate.major} · {candidate.year}</Text><ProfileList title="Academic and readiness" values={[`CGPA ${candidate.cgpa}`, `Aptitude ${candidate.aptitude}`, `Readiness ${candidate.readiness}/100`]} /><ProfileList title="Skills" values={candidate.skills} /><ProfileList title="Projects" values={candidate.projects} /><ProfileList title="Certifications" values={candidate.certifications} /><ProfileList title="Internships" values={candidate.internships} /><InfoBox title="Privacy" body="Contact details are not collected or shown in this prototype. Use candidate information only for placement evaluation." /><TouchableOpacity style={s.button} onPress={() => setModal('')}><Text style={s.buttonText}>Close profile</Text></TouchableOpacity></ScrollView></View></View></Modal>;
   };
 
   const accountModal = () => <Modal visible={modal === 'account'} transparent animationType="slide" onRequestClose={() => setModal('')}>
     <View style={[s.overlay, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}><View style={s.modalCard}><ScrollView keyboardShouldPersistTaps="handled">
-      <View style={s.rowBetween}><Text style={s.modalTitle}>Your Account</Text><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View>
+      <View style={s.rowBetween}><View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}><TouchableOpacity style={s.modalBackBtn} onPress={() => setModal('')}><Text style={s.modalBackText}>‹ Back</Text></TouchableOpacity><Text style={s.modalTitle}>Your Account</Text></View><TouchableOpacity onPress={() => setModal('')}><Text style={s.close}>×</Text></TouchableOpacity></View>
       <View style={[s.card, { marginTop: 12, marginBottom: 12 }]}>
         <View style={s.rowBetween}>
           <View style={s.grow}>
@@ -990,7 +1130,7 @@ function AppContent() {
     if (entryStep === 'loading') {
       return <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: insets.bottom }]}><View style={s.introBackdrop}><View style={s.backdropOrbA} /><View style={s.backdropOrbB} /></View><View style={s.sessionLoading}><ActivityIndicator color="#75E6DE" size="large" /><Text style={s.introFooter}>Checking your sign-in…</Text></View></View>;
     }
-    const enterApp = (nextRole) => { setRole(nextRole); setTab('Home'); animateEntry('app'); };
+    const enterApp = (nextRole) => { setRole(nextRole); setTab('Home'); setTabHistory(['Home']); animateEntry('app'); };
     const entryContent = entryStep === 'welcome' ? (
       <>
         <Animated.View style={[s.introGlow, s.introGlowBlue, { transform: [{ scale: introPulse }] }]} />
@@ -1229,10 +1369,26 @@ function AppContent() {
     return <View style={[s.introRoot, { paddingTop: topInset, paddingBottom: Math.max(insets.bottom, 12) }]}><StatusBar barStyle="light-content" backgroundColor="#0B1024" translucent={Platform.OS === 'android'} /><View style={s.introBackdrop}><View style={s.backdropOrbA} /><View style={s.backdropOrbB} /><View style={s.backdropGrid} /></View><ScrollView contentContainerStyle={s.introScrollContent} showsVerticalScrollIndicator={false}>{entryContent}</ScrollView></View>;
   }
   return <View style={[s.safe, { paddingTop: topInset, paddingBottom: insets.bottom }]}><StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={palette.bg} translucent={Platform.OS === 'android'} />
-    <View style={s.topbar}><View style={s.brandMark}><Text style={s.brandMarkText}>C</Text></View><Text style={s.brand}>Campus<Text style={{ color: palette.blue }}>Link</Text></Text><TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity><TouchableOpacity style={s.headerButton} onPress={() => setTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity><TouchableOpacity style={s.miniAvatar} onPress={() => setModal('account')} accessibilityRole="button" accessibilityLabel="Account details and log out"><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></TouchableOpacity></View>
+    <View style={s.topbar}>
+      {tab !== 'Home' ? (
+        <TouchableOpacity style={s.headerBackButton} onPress={handleBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Go back">
+          <Text style={s.headerBackIcon}>‹</Text>
+          <Text style={s.headerBackLabel}>Back</Text>
+        </TouchableOpacity>
+      ) : null}
+      <View style={tab !== 'Home' ? s.brandGroupCompact : s.brandGroup}>
+        <View style={[s.brandMark, tab !== 'Home' && { width: 26, height: 26, borderRadius: 8 }]}><Text style={[s.brandMarkText, tab !== 'Home' && { fontSize: 15 }]}>C</Text></View>
+        <Text style={[s.brand, tab !== 'Home' && { fontSize: 15, marginLeft: 6 }]}>
+          {tab === 'Home' ? <>Campus<Text style={{ color: palette.blue }}>Link</Text></> : (role === 'Placement' && tab === 'Profile' ? 'Analytics' : tab)}
+        </Text>
+      </View>
+      <TouchableOpacity style={s.themeButton} onPress={() => setThemeMode((mode) => mode === 'light' ? 'dark' : 'light')} accessibilityRole="button" accessibilityLabel={`Switch to ${themeMode === 'light' ? 'dark' : 'light'} mode`}><Text style={s.themeIcon}>{themeMode === 'light' ? '☾' : '☀'}</Text></TouchableOpacity>
+      <TouchableOpacity style={s.headerButton} onPress={() => goToTab('Inbox')}><Text style={s.headerIcon}>✉</Text>{visibleInbox.some((item) => item.unread) && <View style={s.bellDot} />}</TouchableOpacity>
+      <TouchableOpacity style={s.miniAvatar} onPress={() => setModal('account')} accessibilityRole="button" accessibilityLabel="Account details and log out"><Text style={s.miniAvatarText}>{role === 'Student' ? initials(student.name) : role === 'Recruiter' ? (authUser?.company ? initials(authUser.company) : 'RC') : 'PO'}</Text></TouchableOpacity>
+    </View>
     {role === 'Student' && !authUser && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.studentPicker} contentContainerStyle={s.studentPickerContent}>{students.map((person) => <TouchableOpacity key={person.id} onPress={() => setStudentId(person.id)} style={[s.personChip, student.id === person.id && s.personChipSelected]}><Text style={[s.personChipText, student.id === person.id && s.personChipTextSelected]}>{person.name}</Text></TouchableOpacity>)}</ScrollView>}
     <ScrollView key={`${role}-${tab}-${student.id}`} style={s.scroll} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{content}</ScrollView>
-    <View style={s.nav}>{TABS.map(([name, icon]) => <TouchableOpacity style={s.navItem} key={name} onPress={() => { setTab(name); setQuery(''); if (name === 'Inbox') setInbox((current) => current.map((item) => ({ ...item, unread: false }))); }}><Text style={[s.navIcon, tab === name && s.navActiveText]}>{icon}</Text><Text style={[s.navLabel, tab === name && s.navLabelSelected]}>{role === 'Placement' && name === 'Profile' ? 'Analytics' : name}</Text></TouchableOpacity>)}</View>
+    <View style={s.nav}>{TABS.map(([name, icon]) => <TouchableOpacity style={s.navItem} key={name} onPress={() => goToTab(name)}><Text style={[s.navIcon, tab === name && s.navActiveText]}>{icon}</Text><Text style={[s.navLabel, tab === name && s.navLabelSelected]}>{role === 'Placement' && name === 'Profile' ? 'Analytics' : name}</Text></TouchableOpacity>)}</View>
     {!!notice && <View style={s.toast} pointerEvents="none"><Text style={s.toastText}>{notice}</Text></View>}
     {formModal()}{openSelectedJobDetails()}{candidateModal()}{accountModal()}
   </View>;
@@ -1271,6 +1427,13 @@ const makeStyles = (C) => StyleSheet.create({
     autoLoginBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.softGreen, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10 },
     autoLoginBadgeIcon: { fontSize: 13, color: C.green },
     autoLoginBadgeText: { fontSize: 9, fontWeight: '700', color: C.green },
+    headerBackButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.pale, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, marginRight: 8 },
+    headerBackIcon: { color: C.blue, fontSize: 22, fontWeight: '900', lineHeight: 22, marginTop: -2, marginRight: 3 },
+    headerBackLabel: { color: C.blue, fontSize: 11, fontWeight: '800' },
+    brandGroup: { flexDirection: 'row', alignItems: 'center' },
+    brandGroupCompact: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    modalBackBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.pale, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginRight: 8 },
+    modalBackText: { color: C.blue, fontSize: 11, fontWeight: '800' },
 });
 
 const introStyles = StyleSheet.create({
